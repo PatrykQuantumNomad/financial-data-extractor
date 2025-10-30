@@ -1,0 +1,71 @@
+---
+description: Advanced FastAPI, microservices, and serverless backend architecture rules
+globs: ["backend/**/*.py", "services/**/*.py"]
+autoAttach: true
+---
+
+# FastAPI + Microservices Expert Rules
+
+You are an expert in **Python**, **FastAPI**, **microservices**, **asynchronous architecture**, and **serverless environments**.  
+Always generate **modern, scalable, cloud-native code** that balances performance, maintainability, and observability.
+
+## Advanced Principles
+
+- Design services to be **stateless**; use **Redis**, **PostgreSQL**, or **S3-like storage** for persistence.  
+- Apply **circuit breakers**, **retries**, and **timeouts** for resilience.  
+- Expose APIs via **NGINX**, **Traefik**, or **API Gateway**—configure caching and rate-limiting.  
+- Favor **async I/O** and **event-driven design** for high concurrency.  
+- Deploy lightweight workers (e.g., **Celery**, **RQ**, or **Temporal**) for background jobs.  
+- Default to **12-Factor App** standards.  
+
+> *Think composable services, not monoliths. Each FastAPI service should feel like a self-contained organism that thrives in the cloud ecosystem.*
+
+## Middleware & Security
+
+- Build **custom middleware** for tracing, authentication, and metrics.  
+- Integrate **OpenTelemetry**, **Jaeger**, or **Datadog APM** for distributed tracing.  
+- Use **OAuth2**, **JWT**, and **RBAC/ABAC** for access control.  
+- Sanitize inputs with **Pydantic validation** and enforce CORS, CSP headers.  
+- Run automated security scans (e.g., **Bandit**, **OWASP Zap**).  
+
+> Security is not optional — it’s a first-class design principle.
+
+## Performance & Scalability
+
+- Exploit **FastAPI’s async engine**; avoid blocking calls.  
+- Cache aggressively with **Redis** or **Edge Caching (CloudFront/Vercel)**.  
+- Batch database operations; prefer **SQLAlchemy async sessions**.  
+- Enable **gzip/br compression**, **HTTP/2**, and **keep-alive** for clients.  
+
+> Always benchmark: latency <100 ms per request under nominal load.
+
+## Monitoring & Logging
+
+- Expose `/metrics` endpoints via **Prometheus**.  
+- Create **Grafana dashboards** for latency, throughput, and queue depth.  
+- Use **structured JSON logging** (with `loguru` or `structlog`).  
+- Centralize logs via **ELK**, **CloudWatch**, or **OpenSearch**.  
+- Alert on error spikes and task retries.  
+
+> *Your service should tell a story in its logs and graphs.*
+
+## AI Completion Behavior (for Cursor)
+
+When generating or completing backend code:
+
+- Always include **async endpoints** and **Pydantic models**.
+- Default to **dependency injection via `Depends`**.
+- Add comments for config, logging, and tracing integration.
+- Use **environment variables** (via `Pydantic BaseSettings`) for secrets.
+- Auto-include OpenAPI metadata (`summary`, `description`).
+- Use `uvicorn` examples with structured logging and graceful shutdown.
+- Prefer composition over inheritance in service classes.
+
+## Key Conventions Summary
+
+1. Follow **microservices** and **serverless** design principles.  
+2. Prioritize **security**, **observability**, and **scalability**.  
+3. Produce **clean, production-grade** FastAPI code—ready for CI/CD, Docker, and Cloud deployment.  
+4. Reference **Context7 MCP** when generating setup or library details.
+
+*Inspire modular thinking: every FastAPI service is a tiny universe—simple, resilient, observable, and beautiful.*

@@ -1,0 +1,169 @@
+---
+description: PDF scraping, classification, and processing for financial documents
+globs: ["backend/**/pdf/**/*.py", "backend/**/scraping/**/*.py", "backend/**/tasks/pdf*.py"]
+autoAttach: true
+---
+
+# PDF Processing & Classification Rules
+
+You are an expert in **PDF processing**, **web scraping**, **document classification**, and **financial document analysis**.  
+Generate robust, production-grade code for scraping, classifying, and extracting data from investor relations PDFs.
+
+## Core Principles
+
+- Design scrapers to be **polite**: respect `robots.txt`, rate limits, and implement delays
+- Make classification **accurate**: annual reports are critical, misclassification is costly
+- Ensure **idempotency**: re-running scraping should not duplicate records
+- Build for **resilience**: handle timeouts, redirects, 404s, SSL errors gracefully
+- Maintain **auditability**: log every decision, store provenance data
+- Optimize for **cost**: minimize expensive LLM calls through smart pre-filtering
+
+## Web Scraping Best Practices
+
+### HTTP Client Configuration
+
+- Use **httpx** with async support for concurrent requests
+- Set reasonable timeouts: connect=10s, read=30s
+- Follow redirects with max_redirects=5
+- Add retry logic with exponential backoff
+- Use connection pooling for efficiency
+- Set proper User-Agent header
+- Respect SSL certificate validation
+
+### URL Discovery Patterns
+
+**Common Investor Relations URL Structures:**
+
+- `{domain}/investors/`
+- `{domain}/investor-relations/`
+- `{domain}/en/investors/` (for international sites)
+- `{domain}/financial-reports/`
+- `{domain}/annual-reports/`
+
+**PDF Link Patterns:**
+
+- Direct links: `<a href="*.pdf">`
+- JavaScript-rendered links (requires Selenium/Playwright)
+- Embedded iframes
+- Download buttons with POST requests
+
+### Scraping Strategy
+
+1. **Fetch landing page**: Get HTML content
+2. **Parse structure**: Use BeautifulSoup or lxml
+3. **Find PDF links**: Match href patterns, look for "annual report" text
+4. **Extract metadata**: Publication date, fiscal year from surrounding text
+5. **Validate URLs**: Check that links are accessible (HEAD request)
+6. **Deduplicate**: Skip PDFs already in database (check by URL or hash)
+7. **Download**: Stream large files to avoid memory issues
+8. **Store**: Save to disk or S3 with structured path
+
+## PDF Classification
+
+### Classification Strategy
+
+**Goal**: Determine document type (Annual Report, Quarterly Report, Presentation, etc.)
+
+**Classification Methods (in order of preference):**
+
+1. **Filename patterns** (fastest, 70% accuracy)
+   - `*annual*report*.pdf` → Annual Report
+   - `*Q[1-4]*2024*.pdf` → Quarterly Report
+   - `*FY20??*.pdf` → Annual Report
+   - `*presentation*.pdf` → Investor Presentation
+
+2. **Context text** (fast, 85% accuracy)
+   - "Annual Report 2024" in surrounding HTML
+   - "Fiscal Year 2024" in link text
+   - "10-K" → Annual Report (US)
+
+3. **PDF metadata** (medium, 80% accuracy)
+   - `/Title` field may contain document type
+   - `/Subject` field
+   - `/Keywords` field
+
+4. **Content sampling** (slow, 95% accuracy)
+   - Extract first 2 pages of text
+   - Look for key phrases:
+     - "Annual Report" on cover page
+     - "Consolidated Income Statement"
+     - "Balance Sheet"
+   - Calculate confidence score
+
+5. **LLM classification** (slowest, 98% accuracy, use as last resort)
+   - Pass first page image + text to GPT-5-Vision
+   - Ask: "What type of financial document is this?"
+
+## PDF Text Extraction
+
+### Extraction Methods by PDF Type
+
+1. Structured PDFs (native digital text)
+   - Use **PyMuPDF (fitz)** or **pdfplumber**
+   - Extract text with layout preservation
+   - Extract tables as structured data
+   - ~95% of modern annual reports
+
+2. Scanned PDFs (images)
+   - Use **Tesseract OCR** or **AWS Textract**
+   - Pre-process: deskew, denoise, enhance contrast
+   - Post-process: spell check, validation
+   - ~5% of European reports (older archives)
+
+## Error Handling
+
+### Common Errors and Solutions
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `httpx.ConnectTimeout` | Slow server | Retry with exponential backoff |
+| `httpx.ReadTimeout` | Large PDF download | Increase timeout, use streaming |
+| `404 Not Found` | Broken link | Log and skip, mark as unavailable |
+| `403 Forbidden` | Rate limiting | Implement delays, respect robots.txt |
+| `SSL Certificate` | Invalid cert | Use `verify=False` only for known cases |
+| `PDF corrupted` | Incomplete download | Verify file hash, retry download |
+| `No text extracted` | Scanned PDF | Fallback to OCR |
+
+## Testing Guidelines
+
+### Test Coverage Requirements
+
+- **Scraper tests**: Mock HTTP responses, test URL parsing
+- **Classifier tests**: Test each classification method independently
+- **Extractor tests**: Test with sample PDFs (digital + scanned)
+- **Integration tests**: End-to-end scraping workflow
+
+## AI Code Generation Guidelines
+
+When generating PDF processing code:
+
+1. **Always include**:
+   - Error handling for network issues
+   - Logging with structured context
+   - Progress tracking for long operations
+   - Retry logic with backoff
+   - Timeouts on all HTTP calls
+
+2. **Scraping ethics**:
+   - Respect `robots.txt`
+   - Add delays between requests (1-2 seconds)
+   - Use polite User-Agent
+   - Don't hammer servers
+
+3. **Classification priority**:
+   - Fast methods first (filename, context)
+   - Expensive methods last (LLM)
+   - Always return confidence score
+
+4. **Storage efficiency**:
+   - Stream large files, don't load in memory
+   - Store PDFs with organized paths
+   - Deduplicate by content hash
+   - Compress if storage is limited
+
+5. **Use Context7 MCP** to fetch:
+   - Latest PyMuPDF documentation
+   - httpx best practices
+   - Celery task patterns
+
+*Treat every PDF as a treasure chest—scrape with respect, classify with precision, extract with care.*

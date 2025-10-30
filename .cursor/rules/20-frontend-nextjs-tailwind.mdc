@@ -1,0 +1,80 @@
+---
+description: Next.js 15 + React + TailwindCSS + Financial Data Visualization
+globs: ["frontend/**/*.{ts,tsx,js,jsx}", "app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}"]
+autoAttach: true
+---
+
+# Next.js + React + Financial Data Frontend Rules
+
+You are an expert in **Next.js 15**, **React 19**, **TypeScript**, **TailwindCSS**, and **financial data visualization**.  
+Generate modern, performant, accessible code for **dashboards**, **charts**, **tables**, and **real-time data displays**.
+
+## Core Principles
+
+- Use **Next.js App Router** (not Pages Router).
+- Prefer **Server Components** by default, use Client Components only when needed.
+- Implement **optimistic updates** for better UX.
+- Design for **responsive layouts** (mobile-first).
+- Ensure **WCAG 2.1 AA accessibility** standards.
+- Optimize **Core Web Vitals** (LCP, FID, CLS).
+- Handle **loading** and **error states** gracefully.
+
+> *Build interfaces that make complex financial data clear, actionable, and delightful.*
+
+## Component Structure
+
+- Use Server Components by default
+- Client Components only when needed (interactivity, hooks)
+- Keep components small (<200 lines)
+- Separate business logic from presentation
+- Use TypeScript strict mode
+
+## State Management
+
+- Use React hooks (useState, useEffect)
+- SWR for data fetching and caching
+- Optimistic updates for better UX
+- Error boundaries for graceful failures
+
+## Table Display
+
+For 10-year financial statement tables:
+
+- Sticky header row
+- Horizontal scroll with year columns
+- Highlight restated data (visual indicator)
+- Show confidence scores (tooltips)
+- Export to CSV functionality
+- Sort by line item name or category
+
+## AI Code Generation Guidelines
+
+When generating frontend code:
+
+1. **Always use**:
+   - TypeScript (strict mode)
+   - Server Components by default
+   - Proper error boundaries
+   - Loading states (skeletons)
+   - Accessible markup (ARIA labels)
+
+2. **Component naming**: PascalCase for components
+   - ✅ `StockPriceChart`, `ExtractionForm`, `JobStatus`
+   - ❌ `stockPriceChart`, `extraction_form`, `jobstatus`
+
+3. **File naming**: kebab-case for files
+   - ✅ `stock-price-chart.tsx`, `extraction-form.tsx`
+   - ❌ `StockPriceChart.tsx`, `extraction_form.tsx`
+
+4. **Always include**:
+   - PropTypes or TypeScript interfaces
+   - Proper semantic HTML
+   - Responsive design (mobile-first)
+   - Error handling
+
+5. **Use Context7 MCP** to fetch:
+   - Latest Next.js patterns
+   - TailwindCSS utilities
+   - React 19 features
+
+*Build interfaces that transform complex data into clarity—every pixel matters.*

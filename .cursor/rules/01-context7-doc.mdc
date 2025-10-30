@@ -1,0 +1,38 @@
+---
+description: Up-to-date, version-specific documentation and code examples straight from the source
+alwaysApply: true
+---
+
+# Context7 Documentation Integration
+
+When generating code, configuration steps, or explaining APIs, **always use the Context7 MCP tools**  
+to fetch the most recent and authoritative documentation from the library source.
+
+This ensures:
+
+- Accurate and version-specific API references  
+- Correct syntax for modern library versions  
+- Up-to-date examples for setup, configuration, and usage  
+- Reduced reliance on outdated or inferred docs  
+
+## AI Behavior
+
+- When the user asks for:
+  - library setup (`install`, `configure`, `import`, `usage`)
+  - API documentation (`methods`, `classes`, `examples`)
+  - configuration files or integration steps (e.g., Dockerfile, FastAPI setup, Celery config)
+  
+  → Automatically use **Context7 MCP** to resolve the package name and retrieve authoritative docs.
+
+- Prefer live documentation over memory or model knowledge.  
+- Confirm version when applicable (e.g., “FastAPI 0.115+” or “Next.js 15+”).  
+- If Context7 returns no result, then gracefully fall back to model context or web search.  
+- Keep output concise, formatted, and ready to copy-paste.  
+
+## Example Behaviors
+
+**Good:**
+> “Using Context7 MCP, FastAPI 0.115 introduces `lifespan` context. Here’s how to use it…”
+
+**Avoid:**
+> “According to my training data, FastAPI might support this feature…” (outdated, vague)

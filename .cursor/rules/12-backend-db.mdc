@@ -1,0 +1,157 @@
+---
+description: Database models, migrations, and data integrity for financial data
+globs: ["backend/app/db/**/*.py", "backend/app/models/**/*.py", "alembic/**/*.py"]
+autoAttach: true
+---
+
+# Database & SQLAlchemy Rules for Financial Data
+
+You are an expert in **PostgreSQL**, **SQLAlchemy**, **Alembic migrations**, and **financial data modeling**.  
+Generate database schemas that ensure **data integrity**, **auditability**, **performance**, and **regulatory compliance**.
+
+## Core Principles
+
+- Model financial data with **precision** (use `Numeric`, never `Float` for money).
+- Enforce **data integrity** through constraints, indexes, and validations.
+- Maintain **complete audit trails** (who, what, when).
+- Design for **time-series data** with appropriate partitioning.
+- Optimize queries with **strategic indexing**.
+- Use **soft deletes** for financial records (never hard delete).
+- Ensure **idempotent migrations**.
+
+> *Financial data is sacred—once recorded, it should be immutable and fully traceable.*
+
+## Database Patterns
+
+### Key Tables
+
+- **companies** - Company metadata (name, ticker, IR URL)
+- **pdf_documents** - PDF inventory with classification
+- **financial_statement_extractions** - Raw LLM extractions (JSONB)
+- **compiled_financial_statements** - Normalized 10-year views
+- **extraction_jobs** - Job tracking and status
+
+### Data Integrity
+
+- Use foreign keys with cascading deletes
+- Add check constraints for data validation
+- Create indexes on frequently queried columns
+- Use JSONB for flexible metadata storage
+- Implement soft deletes (deleted_at) for audit trail
+
+## Base Model Pattern
+
+### Abstract Base Model
+
+```python
+# backend/app/db/base.py
+from datetime import datetime
+from sqlalchemy import Column, Integer, DateTime, String
+from sqlalchemy.ext.declarative import declarative_base, declared_attr
+from sqlalchemy.orm import Session
+
+Base = declarative_base()
+
+class TimestampMixin:
+    """Mixin for created_at and updated_at timestamps."""
+    
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        index=True
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        index=True
+    )
+
+class SoftDeleteMixin:
+    """Mixin for soft delete functionality."""
+    
+    deleted_at = Column(DateTime, nullable=True, index=True)
+    is_deleted = Column(Boolean, default=False, nullable=False, index=True)
+    
+    def soft_delete(self, session: Session):
+        """Soft delete the record."""
+        self.deleted_at = datetime.utcnow()
+        self.is_deleted = True
+        session.add(self)
+
+class AuditMixin:
+    """Mixin for audit trail."""
+    
+    created_by = Column(Integer, nullable=True, index=True)
+    updated_by = Column(Integer, nullable=True, index=True)
+    
+    @declared_attr
+    def created_by_user(cls):
+        from .models.user import User
+        return relationship(
+            User,
+            foreign_keys=[cls.created_by],
+            backref=f"{cls.__tablename__}_created"
+        )
+    
+    @declared_attr
+    def updated_by_user(cls):
+        from .models.user import User
+        return relationship(
+            User,
+            foreign_keys=[cls.updated_by],
+            backref=f"{cls.__tablename__}_updated"
+        )
+
+class BaseModel(Base, TimestampMixin, SoftDeleteMixin, AuditMixin):
+    """Base model with common functionality."""
+    
+    __abstract__ = True
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    def to_dict(self):
+        """Convert model to dictionary."""
+        return {
+            column.name: getattr(self, column.name)
+            for column in self.__table__.columns
+        }
+    
+    def __repr__(self):
+        """String representation."""
+        return f"<{self.__class__.__name__}(id={self.id})>"
+```
+
+## AI Code Generation Guidelines
+
+When generating database code:
+
+1. **Always use**:
+   - `Numeric` for monetary values (never `Float`)
+   - Appropriate constraints (CHECK, UNIQUE, FK)
+   - Indexes for frequently queried columns
+   - TimestampMixin for all tables
+   - SoftDeleteMixin for financial records
+
+2. **Model naming**: Use singular nouns
+   - ✅ `StockPrice`, `ExtractionJob`, `User`
+   - ❌ `stock_prices_table`, `JobsModel`
+
+3. **Column naming**: Use snake_case
+   - ✅ `created_at`, `adjusted_close`, `user_id`
+   - ❌ `createdAt`, `CreatedAt`, `userId`
+
+4. **Always include**:
+   - Proper indexes
+   - Audit fields (created_at, updated_at, created_by)
+   - Data validation
+   - Docstrings explaining business logic
+
+5. **Use Context7 MCP** to fetch:
+   - Latest SQLAlchemy patterns
+   - Alembic migration examples
+   - PostgreSQL-specific features
+
+*Model data as if auditors and regulators will review every record—because they might.*

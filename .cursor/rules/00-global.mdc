@@ -1,0 +1,121 @@
+---
+description: Global AI behavior and general coding standards
+alwaysApply: true
+---
+
+# Global Coding Guidelines
+
+These rules apply to all languages and layers (Python, TypeScript, Docker, SQL, etc.).
+They guide AI-assisted code generation and ensure a unified, maintainable codebase.
+
+## General Principles
+
+- Write **self-documenting**, modular, and testable code.
+- Prefer **clarity over cleverness**.
+- Optimize for **readability**, **consistency**, and **predictability**.
+- Follow the **SOLID**, **DRY**, and **KISS** principles.
+- Code should be safe to refactor and easy to reason about.
+
+## Naming
+
+- Use **intention-revealing**, **pronounceable**, and **searchable** names.
+- Avoid abbreviations, acronyms, or vague letters (e.g., `tmp`, `val`).
+- Booleans: prefix with `is`, `has`, `can`, or `should`.
+- Use consistent vocabulary across the codebase (e.g., `fetch`, `load`, `get`).
+- Align variable and function names with domain terminology.
+
+## Functions
+
+- Keep functions **small** (<30 lines) and **focused** on one responsibility.
+- Use **descriptive verb-based names** (`get_user_profile`, `calculate_interest`).
+- Max 3–4 parameters (prefer objects or dataclasses when exceeding).
+- Avoid side effects unless clearly intentional.
+- **Return early** to minimize nesting.
+- Prefer **pure functions** when possible.
+
+## Comments
+
+- Explain **why**, not **what**.
+- Keep comments concise and updated.
+- Remove commented-out or obsolete code.
+- Replace TODOs with issues in the tracker.
+- Use **docstrings (Python)** or **JSDoc (TypeScript)** for public APIs.
+- Prefer clear naming and structure over excessive comments.
+
+## Error Handling
+
+- Prefer **exceptions** or typed results over error codes.
+- Always include **context** in error messages.
+- Handle exceptions **at the correct layer**.
+- Don’t return null — use Option/Result or raise exceptions.
+- **Fail fast, fail clearly, fail gracefully.**
+- Always **log errors with structured context** (e.g., request_id, user_id).
+- Never swallow exceptions silently.
+
+## Code Organization
+
+- Group related functionality together.
+- Use **consistent, meaningful file/folder names**.
+- Keep imports ordered: stdlib → third-party → local.
+- Separate concerns (e.g., API, DB, logic, UI, monitoring).
+- Avoid circular dependencies.
+- Keep modules small and purpose-driven.
+
+## Constants
+
+- Replace magic numbers with **named constants**.
+- Group related constants logically.
+- Use **UPPER_SNAKE_CASE**.
+- Keep constants **immutable**.
+- Use enums for related sets.
+- Define close to where used unless shared globally.
+
+## Classes and Objects
+
+- Maintain **high cohesion** and **low coupling**.
+- Use **dependency injection** (DI) where appropriate.
+- Prefer **composition over inheritance**.
+- Hide implementation details; expose minimal public API.
+- Follow **SOLID principles**:
+  - Single Responsibility
+  - Open/Closed
+  - Liskov Substitution
+  - Interface Segregation
+  - Dependency Inversion
+
+## Dependency Injection
+
+- In Python: use FastAPI’s `Depends`, Pydantic settings, or manual injection.
+- In TypeScript: use lightweight DI (e.g., `tsyringe` or custom context hooks).
+- Keep services stateless where possible.
+- Use **factories** for complex object creation.
+- Mock or override via container registration in tests.
+
+## Formatting
+
+- Use consistent formatting:
+  - Python → `black`, `isort`, `flake8`
+  - JS/TS → `prettier`, `eslint`
+- Max line length: 100–120 characters.
+- Maintain consistent indentation (4 spaces for Python, 2 for TS/JS).
+- Use vertical spacing to separate concepts.
+- Keep related code visually grouped.
+
+## Variables
+
+- Declare variables close to usage.
+- Use `const` by default (`let` only when reassigned).
+- Avoid `var`.
+- Use meaningful, contextual names.
+- Initialize variables upon declaration.
+- Limit variable scope tightly.
+
+## AI Assistant Behavior
+
+- AI should:
+  - Generate **idiomatic code** for each language.
+  - Follow these standards automatically.
+  - Include comments and docstrings where relevant.
+  - Suggest **clean refactors** when seeing long functions or duplication.
+  - Avoid generating deprecated syntax or insecure patterns.
+  - Respect `.editorconfig` and `.prettierrc` when present.

@@ -1,0 +1,82 @@
+---
+description: UI/UX and Tailwind CSS best practices with shadcn/ui
+globs: src/components/**/*.ts,src/components/**/*.tsx,src/app/**/*.ts,src/app/**/*.tsx,src/**/*.css
+---
+
+# UI/UX & Tailwind CSS
+
+## Tailwind v4
+
+- @import "tailwindcss" in CSS
+- Use container queries (@container)
+- Use CSS layer syntax
+- CSS-first config
+- Built-in nesting
+
+## Design System
+
+- Use shadcn/ui as base
+- Extend with CVA
+- Consistent spacing scale
+- CSS vars for theming
+- Reusable variants
+- Central design tokens
+
+## Responsive
+
+- Mobile-first
+- Container queries
+- Min 44px touch targets
+- Test multiple screen sizes
+- Semantic breakpoints
+
+## Accessibility
+
+- Always use **semantic HTML elements** (button, nav, header, main, footer, etc.)
+- Provide **accessible names** (labels, aria-label, aria-labelledby)
+- Ensure **keyboard navigation** (tab order, focusable elements)
+- Manage **focus states** (visible focus ring, focus trap in modals)
+- Maintain **color contrast ratios** (WCAG AA+)
+- Provide **alt text** for images
+- Use **aria-live** for dynamic content updates
+- Use **role attributes** only when semantic HTML is insufficient
+- Respect **prefers-reduced-motion**
+- Automated a11y tests (axe, Playwright a11y checks)
+
+## Performance
+
+- CSS containment
+- Minimize layout shifts
+- Lazy load images
+- Use WebP/AVIF
+- 60fps animations
+- Use transform/opacity
+- Monitor bundle/CSS size
+
+## Components
+
+- Atomic, composable
+- Typed props with variants
+- Loading/error states
+- Consistent naming
+- Proper composition
+- Avoid deep nesting
+- Document with Storybook/MDX
+
+## Animations
+
+- CSS transitions for simple states
+- Micro-interactions
+- Proper easing
+- Respect motion preferences
+- Subtle, purposeful
+- Framer Motion for complex
+
+## Best Practices
+
+- Follow design tokens
+- Prefer utility classes
+- Dark mode support
+- Reusable layouts
+- Test in isolation
+- Document APIs

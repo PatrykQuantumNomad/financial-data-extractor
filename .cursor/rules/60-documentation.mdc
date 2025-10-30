@@ -1,0 +1,228 @@
+---
+description: Documentation standards, README, API docs, and architecture documentation
+globs: ["README.md", "docs/**/*", "*.md", "openapi.json", "**/*.yaml"]
+autoAttach: true
+---
+
+# Documentation & Architecture Rules
+
+You are an expert in **technical documentation**, **API documentation**, **architecture diagrams**, and **developer experience**.  
+Generate clear, comprehensive documentation that enables developers to **understand**, **use**, and **contribute** to the project.
+
+## Core Principles
+
+- Write for your **audience**: developers, operators, users.
+- Keep documentation **close to code** (co-located when possible).
+- Include **runnable examples** with expected output.
+- Maintain **up-to-date** docs (automate when possible).
+- Use **clear**, **concise** language (avoid jargon).
+- Provide **visual aids** (diagrams, screenshots).
+- Document **why** decisions were made, not just what/how.
+
+> *Good documentation is the difference between a project that's used and one that's abandoned.*
+
+## API Documentation
+
+### OpenAPI/Swagger Configuration
+
+```python
+# backend/app/main.py
+from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
+
+def custom_openapi():
+    """Generate custom OpenAPI schema."""
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    openapi_schema = get_openapi(
+        title="Financial Data Extractor API",
+        version="1.0.0",
+        description="""
+        # Financial Data Extractor API
+        
+        A comprehensive API for extracting, processing, and accessing financial market data.
+        
+        ## Features
+        
+        - **Stock Data Extraction**: Extract historical stock prices from multiple sources
+        - **Job Management**: Track and monitor extraction jobs
+        - **Data Access**: Query stock prices with flexible filters
+        - **User Management**: Authentication and authorization
+        
+        ## Authentication
+        
+        This API uses OAuth2 with JWT tokens. To authenticate:
+        
+        1. Obtain a token from `/api/v1/auth/login`
+        2. Include it in the `Authorization` header: `Bearer <token>`
+        
+        ## Rate Limiting
+        
+        - Authenticated users: 1000 requests/hour
+        - Unauthenticated: 100 requests/hour
+        
+        ## Support
+        
+        For issues or questions, please visit our [GitHub repository](https://github.com/org/repo).
+        """,
+        routes=app.routes,
+        tags=[
+            {
+                "name": "stock-prices",
+                "description": "Operations related to stock price data"
+            },
+            {
+                "name": "extractions",
+                "description": "Data extraction job management"
+            },
+            {
+                "name": "auth",
+                "description": "Authentication and authorization"
+            }
+        ]
+    )
+    
+    # Add security schemes
+    openapi_schema["components"]["securitySchemes"] = {
+        "OAuth2PasswordBearer": {
+            "type": "oauth2",
+            "flows": {
+                "password": {
+                    "scopes": {},
+                    "tokenUrl": "/api/v1/auth/login"
+                }
+            }
+        }
+    }
+    
+    # Add servers
+    openapi_schema["servers"] = [
+        {"url": "http://localhost:8000", "description": "Development"},
+        {"url": "https://api.example.com", "description": "Production"}
+    ]
+    
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
+```
+
+### Endpoint Documentation
+
+```python
+from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Optional
+from datetime import date
+
+router = APIRouter(prefix="/api/v1/stock-prices", tags=["stock-prices"])
+
+@router.get(
+    "",
+    response_model=List[StockPriceResponse],
+    summary="List stock prices",
+    description="""
+    Retrieve stock prices for a given symbol and date range.
+    
+    **Parameters:**
+    - `symbol`: Stock ticker symbol (e.g., AAPL, GOOGL)
+    - `start_date`: Start date in YYYY-MM-DD format
+    - `end_date`: End date in YYYY-MM-DD format
+    - `limit`: Maximum number of results (default: 100, max: 1000)
+    
+    **Returns:**
+    List of stock prices ordered by date descending.
+    
+    **Example:**
+    ```bash
+    curl "http://localhost:8000/api/v1/stock-prices?symbol=AAPL&start_date=2024-01-01&end_date=2024-01-31"
+    ```
+    
+    **Response:**
+    ```json
+    [
+      {
+        "id": 1,
+        "symbol": "AAPL",
+        "date": "2024-01-15",
+        "open": 185.50,
+        "high": 188.25,
+        "low": 184.75,
+        "close": 187.00,
+        "volume": 50000000
+      }
+    ]
+    ```
+    """,
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": [
+                        {
+                            "id": 1,
+                            "symbol": "AAPL",
+                            "date": "2024-01-15",
+                            "open": 185.50,
+                            "high": 188.25,
+                            "low": 184.75,
+                            "close": 187.00,
+                            "volume": 50000000
+                        }
+                    ]
+                }
+            }
+        },
+        400: {"description": "Invalid parameters"},
+        404: {"description": "No data found"}
+    }
+)
+async def list_stock_prices(
+    symbol: str,
+    start_date: date,
+    end_date: date,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db)
+):
+    """List stock prices endpoint implementation."""
+    # Implementation here
+    pass
+```
+
+## AI Code Generation Guidelines
+
+When generating documentation:
+
+1. **Always include**:
+   - Clear purpose/overview
+   - Installation instructions
+   - Configuration examples
+   - Usage examples with output
+   - Troubleshooting section
+   - Links to related docs
+
+2. **Documentation types**:
+   - README: Project overview and quick start
+   - API docs: Endpoint specifications
+   - Architecture: Design decisions and diagrams
+   - Development: Setup and contribution guides
+
+3. **Format**:
+   - Use Markdown for all documentation
+   - Include code examples with syntax highlighting
+   - Add diagrams using Mermaid or ASCII art
+   - Provide both examples and explanations
+
+4. **Keep updated**:
+   - Version all documentation
+   - Date major changes
+   - Link to relevant code
+   - Test all examples
+
+5. **Use Context7 MCP** to fetch:
+   - Latest documentation best practices
+   - Framework-specific documentation patterns
+   - OpenAPI specification standards
+
+*Documentation is a love letter to your future self and other developers.*

@@ -1,0 +1,108 @@
+---
+description: Docker, docker-compose, and container orchestration for financial data platform
+globs: ["Dockerfile*", "docker-compose*.yml", ".dockerignore", "k8s/**/*"]
+autoAttach: true
+---
+
+# Docker & Containerization Rules
+
+You are an expert in **Docker**, **docker-compose**, **container security**, and **orchestration**.  
+Generate production-ready containers that are **secure**, **optimized**, and **maintainable**.
+
+## Core Principles
+
+- Use **multi-stage builds** to minimize image size.
+- Run containers as **non-root users**.
+- Implement **health checks** for all services.
+- Use **.dockerignore** to exclude unnecessary files.
+- Pin **specific versions** (no `latest` tags in production).
+- Optimize **layer caching** for faster builds.
+- Follow **least privilege principle** for container permissions.
+
+> *Containers should be ephemeral, immutable, and secure by default.*
+
+## Security Best Practices
+
+### 1. Run as Non-Root User
+
+```dockerfile
+# Create and switch to non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+USER appuser
+```
+
+### 2. Use Security Options
+
+```yaml
+security_opt:
+  - no-new-privileges:true
+```
+
+### 3. Read-Only Root Filesystem (when possible)
+
+```yaml
+read_only: true
+tmpfs:
+  - /tmp
+  - /var/run
+```
+
+### 4. Limit Resources
+
+```yaml
+deploy:
+  resources:
+    limits:
+      cpus: '2'
+      memory: 2G
+    reservations:
+      memory: 512M
+```
+
+### 5. Use Secrets Management
+
+```yaml
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+  api_key:
+    file: ./secrets/api_key.txt
+
+services:
+  backend:
+    secrets:
+      - db_password
+      - api_key
+```
+
+## AI Code Generation Guidelines
+
+When generating Docker configurations:
+
+1. **Always include**:
+   - Multi-stage builds for optimization
+   - Non-root users for security
+   - Health checks for all services
+   - Resource limits
+   - Proper network isolation
+
+2. **File naming**: Consistent naming
+   - ✅ `Dockerfile`, `docker-compose.yml`, `.dockerignore`
+   - ❌ `dockerfile`, `docker-compose.yaml`
+
+3. **Version pinning**: Always pin versions
+   - ✅ `python:3.11-slim`, `postgres:16-alpine`
+   - ❌ `python:latest`, `postgres`
+
+4. **Always document**:
+   - Environment variables
+   - Volume mounts
+   - Port mappings
+   - Service dependencies
+
+5. **Use Context7 MCP** to fetch:
+   - Latest Docker best practices
+   - Official image documentation
+   - Security recommendations
+
+*Containers should be cattle, not pets—ephemeral, replaceable, and perfectly reproducible.*

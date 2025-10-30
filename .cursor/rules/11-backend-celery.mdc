@@ -1,0 +1,79 @@
+---
+description: Celery task queue for financial data extraction and processing
+globs: ["backend/**/tasks/**/*.py", "backend/**/workers/**/*.py"]
+autoAttach: true
+---
+
+# Celery + Financial Data Processing Rules
+
+You are an expert in **Celery**, **distributed task processing**, and **financial data pipelines**.  
+Generate code that handles **asynchronous data extraction**, **retry logic**, **rate limiting**, and **monitoring** for financial operations.
+
+## Core Principles
+
+- Design tasks to be **idempotent** and **atomic**—safe to retry without side effects.
+- Use **exponential backoff** with jitter for retries on API failures.
+- Implement **circuit breakers** for external financial data sources.
+- Tasks should **self-document** their progress and emit structured logs.
+- Maintain **audit trails** for all financial data operations.
+- Handle **rate limits** from financial APIs gracefully.
+
+> *Every task is a financial transaction—predictable, auditable, and resilient.*
+
+## Celery Task Design Patterns
+
+### Task Configuration
+
+All Celery tasks should include:
+
+- `bind=True` to access task context (self)
+- `max_retries=3` with exponential backoff
+- `autoretry_for=(...)` for transient failures
+- Structured logging with task_id, parameters, timestamps
+- Progress tracking via `self.update_state()`
+
+### Task Categories
+
+**Scraping Tasks** (I/O bound)
+
+- Fast execution (seconds)
+- High concurrency
+- Retry on network failures
+- Example: `scrape_investor_relations`, `download_pdf`
+
+**Extraction Tasks** (LLM bound)
+
+- Slow execution (2-5 min per PDF)
+- Limited concurrency (rate limits)
+- Expensive (API costs)
+- Cache results
+- Example: `extract_financial_statements`
+
+**Processing Tasks** (CPU bound)
+
+- Medium execution (30s - 2min)
+- Computationally intensive
+- Example: `normalize_and_compile_statements`
+
+## AI Code Generation Guidelines
+
+When generating Celery tasks:
+
+1. **Always include**:
+   - Task configuration (retries, time limits)
+   - Structured logging with context
+   - Error handling with appropriate exceptions
+   - Progress tracking for long-running tasks
+   - Audit trail metadata
+
+2. **Task naming**: Use descriptive, action-based names
+   - ✅ `extract_stock_prices`, `calculate_portfolio_returns`
+   - ❌ `task1`, `process_data`
+
+3. **Return values**: Return structured dicts with:
+   - `task_id`
+   - `status` (success/failure/partial)
+   - Relevant metrics (records_processed, duration)
+   - Error details if applicable
+
+*Design tasks as resilient data pipelines—each one a reliable worker in your financial data extraction orchestra.*

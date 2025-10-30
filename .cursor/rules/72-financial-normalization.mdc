@@ -1,0 +1,124 @@
+---
+description: Financial data normalization, deduplication, and multi-year compilation
+globs: ["backend/**/normalization/**/*.py", "backend/**/compilation/**/*.py", "backend/**/tasks/normalize*.py"]
+autoAttach: true
+---
+
+# Financial Data Normalization & Compilation Rules
+
+You are an expert in **financial data normalization**, **fuzzy matching**, **data reconciliation**, and **time-series compilation**.  
+Generate code that merges financial data from multiple years into unified, clean, accurate 10-year views.
+
+## Core Principles
+
+- Prioritize **data accuracy**: incorrect merges corrupt analysis
+- Maintain **audit trails**: record all normalization decisions
+- Handle **restated data**: newer reports take precedence
+- Preserve **original terminology**: keep company's naming when possible
+- Flag **ambiguities**: when uncertain, mark for human review
+- Ensure **idempotency**: rerunning normalization produces same results
+- Design for **scalability**: support hundreds of line items efficiently
+
+## Problem Statement
+
+### Challenge: Line Item Proliferation
+
+Companies use different terminology across years:
+
+**Example - Revenue Line Items:**
+
+- 2024 Report: "Total Revenue"
+- 2023 Report: "Revenues"
+- 2022 Report: "Sales Revenue"
+- 2021 Report: "Net Sales"
+- 2020 Report: "Revenue, net"
+
+**Goal:** Merge into single row "Total Revenue" with 10 years of data
+
+### Challenge: Restated Data
+
+Newer reports contain historical data that supersedes older reports:
+
+**Example:**
+
+- 2024 Report shows: 2023 Revenue = €100M, 2022 Revenue = €95M
+- 2023 Report shows: 2023 Revenue = €98M, 2022 Revenue = €93M
+- 2022 Report shows: 2022 Revenue = €93M
+
+**Correct Values:**
+
+- 2023 Revenue = €100M (from 2024 report - restated)
+- 2022 Revenue = €95M (from 2024 report - restated)
+
+**Rule:** Always use data from the most recent report
+
+## Normalization Architecture
+
+### Three-Phase Pipeline
+
+```text
+Phase 1: Collection
+┌─────────────────────────────────────┐
+│  Gather all raw extractions         │
+│  • Group by company + statement type│
+│  • Sort by fiscal year (desc)       │
+│  • Collect all unique line items    │
+└────────────┬────────────────────────┘
+             │
+Phase 2: Normalization
+┌────────────▼────────────────────────┐
+│  Normalize line item names          │
+│  • Fuzzy match similar names        │
+│  • Apply manual mappings            │
+│  • Select canonical names           │
+│  • Build equivalence groups         │
+└────────────┬────────────────────────┘
+             │
+Phase 3: Compilation
+┌────────────▼────────────────────────┐
+│  Compile 10-year views              │
+│  • Fill data from all years         │
+│  • Prioritize newer reports         │
+│  • Maintain data lineage            │
+│  • Flag gaps and conflicts          │
+└────────────┬────────────────────────┘
+             │
+             ▼
+        Final Output
+```
+
+## AI Code Generation Guidelines
+
+When generating normalization code:
+
+1. **Always include**:
+   - Fuzzy matching with configurable thresholds
+   - Manual mapping override capability
+   - Data lineage tracking
+   - Quality validation
+   - Audit logs
+
+2. **Matching strategy**:
+   - Manual mappings first (user-defined)
+   - Synonym matching second (exact matches)
+   - Fuzzy matching third (similarity-based)
+   - Flag low-confidence matches
+
+3. **Compilation rules**:
+   - Newest source wins
+   - Mark restated data
+   - Preserve all variants
+   - Track confidence
+
+4. **Quality checks**:
+   - Validate calculations
+   - Check completeness
+   - Flag anomalies
+   - Score overall quality
+
+5. **Use Context7 MCP** to fetch:
+   - rapidfuzz documentation
+   - Pydantic validation patterns
+   - Testing best practices
+
+*Treat normalization as data archaeology—piece together the truth from fragments, always showing your work.*

@@ -1,0 +1,878 @@
+---
+description: LLM/GPT-5 integration for financial statement extraction
+globs: ["backend/**/llm/**/*.py", "backend/**/extraction/**/*.py", "backend/**/tasks/extract*.py"]
+autoAttach: true
+---
+
+# LLM Financial Data Extraction Rules
+
+You are an expert in **LLM integration**, **prompt engineering**, **financial statement analysis**, and **structured data extraction**.  
+Generate code that uses GPT-5 to extract precise, structured financial data from annual reports.
+
+## Core Principles
+
+- Design prompts for **maximum precision**: financial data must be exact
+- Build for **cost efficiency**: minimize tokens, cache aggressively
+- Ensure **reliability**: handle API failures, rate limits, timeouts gracefully
+- Maintain **auditability**: log all LLM calls with inputs and outputs
+- Optimize for **accuracy**: validate extracted data, detect anomalies
+- Handle **edge cases**: missing data, unusual formats, multi-currency
+
+## LLM Configuration
+
+### Model Selection
+
+**Primary Model: GPT-5 Turbo**
+- Model: `GPT-5-turbo-preview` or `GPT-5-1106-preview`
+- Best for: Complex financial documents
+- Cost: ~$0.01 per 1K input tokens, ~$0.03 per 1K output tokens
+- Context: 128K tokens
+
+**Fallback Model: GPT-5**
+- Model: `GPT-5`
+- Use when: Turbo unavailable
+- Cost: ~$0.03 per 1K input tokens, ~$0.06 per 1K output tokens
+- Context: 8K tokens
+
+**Alternative: GPT-5o**
+- Model: `GPT-5o`
+- Best for: Faster responses, lower cost
+- Cost: ~$0.005 per 1K tokens
+- Context: 128K tokens
+
+### API Configuration
+
+```python
+import openai
+from typing import Dict, Any, Optional
+from pydantic import BaseModel, Field
+import json
+
+class LLMConfig:
+    """Configuration for OpenAI API calls."""
+    
+    # API settings
+    api_key: str = os.getenv("OPENAI_API_KEY")
+    model: str = "GPT-5-turbo-preview"
+    temperature: float = 0.0  # Deterministic
+    max_tokens: int = 4096
+    timeout: int = 120  # 2 minutes
+    
+    # Retry settings
+    max_retries: int = 3
+    retry_delay: float = 2.0
+    
+    # Rate limiting
+    requests_per_minute: int = 50
+    tokens_per_minute: int = 150_000
+
+class OpenAIClient:
+    """Wrapper for OpenAI API with retry logic and monitoring."""
+    
+    def __init__(self, config: LLMConfig):
+        self.config = config
+        self.client = openai.AsyncOpenAI(
+            api_key=config.api_key,
+            timeout=config.timeout,
+            max_retries=config.max_retries
+        )
+        self.rate_limiter = RateLimiter(
+            requests_per_minute=config.requests_per_minute,
+            tokens_per_minute=config.tokens_per_minute
+        )
+    
+    async def create_completion(
+        self,
+        messages: List[Dict[str, str]],
+        response_format: Optional[Dict] = None,
+        **kwargs
+    ) -> str:
+        """
+        Create a chat completion with retry logic.
+        
+        Args:
+            messages: List of message dicts with 'role' and 'content'
+            response_format: Optional response format (e.g., {"type": "json_object"})
+            **kwargs: Additional arguments for API call
+            
+        Returns:
+            Completion text
+        """
+        # Apply rate limiting
+        await self.rate_limiter.acquire()
+        
+        try:
+            response = await self.client.chat.completions.create(
+                model=kwargs.get('model', self.config.model),
+                messages=messages,
+                temperature=kwargs.get('temperature', self.config.temperature),
+                max_tokens=kwargs.get('max_tokens', self.config.max_tokens),
+                response_format=response_format,
+                **{k: v for k, v in kwargs.items() 
+                   if k not in ['model', 'temperature', 'max_tokens']}
+            )
+            
+            # Log usage
+            usage = response.usage
+            logger.info(
+                "OpenAI API call completed",
+                extra={
+                    'model': response.model,
+                    'prompt_tokens': usage.prompt_tokens,
+                    'completion_tokens': usage.completion_tokens,
+                    'total_tokens': usage.total_tokens,
+                    'cost_usd': self._calculate_cost(usage)
+                }
+            )
+            
+            return response.choices[0].message.content
+            
+        except openai.APIError as e:
+            logger.error(f"OpenAI API error: {e}", exc_info=True)
+            raise
+        except openai.RateLimitError as e:
+            logger.warning("Rate limit hit, backing off")
+            await asyncio.sleep(60)
+            raise
+    
+    def _calculate_cost(self, usage) -> float:
+        """Calculate API call cost in USD."""
+        # GPT-5 Turbo pricing
+        input_cost = (usage.prompt_tokens / 1000) * 0.01
+        output_cost = (usage.completion_tokens / 1000) * 0.03
+        return input_cost + output_cost
+```
+
+## Prompt Engineering
+
+### System Prompt Design
+
+**Key Principles:**
+1. **Be specific**: Clearly define the task and expected output
+2. **Provide structure**: Use JSON schema for structured output
+3. **Set constraints**: Specify rules for handling edge cases
+4. **Give examples**: Show desired behavior
+
+### Master System Prompt
+
+```python
+SYSTEM_PROMPT = """You are a financial data extraction expert. Your task is to extract structured financial statement data from annual report text with perfect accuracy.
+
+CRITICAL RULES:
+1. Extract ALL line items exactly as they appear in the document
+2. Preserve the exact wording used by the company
+3. Maintain the hierarchical structure (parent-child relationships)
+4. Include all columns (multiple years if present)
+5. Return null for missing values, never fabricate data
+6. Preserve negative numbers with minus sign (not parentheses)
+7. Extract numerical values without thousands separators
+8. Note currency if specified
+9. Capture footnote references if present
+
+OUTPUT FORMAT:
+Return valid JSON matching the exact schema provided. Do not include any text outside the JSON structure.
+
+DATA QUALITY:
+- Double-check all numbers
+- Verify that subtotals equal sum of components
+- Flag any anomalies or inconsistencies
+- If uncertain about a value, mark confidence as "low"
+
+EDGE CASES:
+- If a line item has no value, use null
+- If a calculation is shown (e.g., "2023 - 2022"), extract the result only
+- If there are multiple currencies, note each currency per column
+- If text is unclear or OCR quality is poor, mark confidence as "low"
+"""
+```
+
+### Statement-Specific Prompts
+
+**Income Statement:**
+```python
+INCOME_STATEMENT_PROMPT_TEMPLATE = """Extract the Income Statement (also called Statement of Operations, Profit & Loss, or P&L) from the following annual report text.
+
+ANNUAL REPORT TEXT:
+{document_text}
+
+EXTRACTION INSTRUCTIONS:
+1. Identify the Income Statement section
+2. Extract ALL line items in order from top to bottom
+3. Common sections include:
+   - Revenue / Sales / Turnover
+   - Cost of Revenue / Cost of Sales
+   - Gross Profit
+   - Operating Expenses (R&D, SG&A, etc.)
+   - Operating Income
+   - Interest Income/Expense
+   - Income Before Taxes
+   - Tax Provision
+   - Net Income
+4. Preserve indentation levels (0=main item, 1=sub-item, 2=sub-sub-item)
+5. Extract all year columns present
+
+EXPECTED JSON SCHEMA:
+{{
+  "statement_type": "income_statement",
+  "company_name": string,
+  "fiscal_year_end": "YYYY-MM-DD",
+  "currency": string (e.g., "EUR", "USD"),
+  "line_items": [
+    {{
+      "name": string,
+      "values": {{
+        "2024": number | null,
+        "2023": number | null,
+        "2022": number | null
+      }},
+      "indentation_level": integer (0-5),
+      "is_subtotal": boolean,
+      "is_total": boolean,
+      "footnote_refs": [string] | null,
+      "confidence": "high" | "medium" | "low"
+    }}
+  ],
+  "extraction_metadata": {{
+    "page_numbers": [int],
+    "sections_found": [string],
+    "data_quality_score": float (0-1)
+  }}
+}}
+
+Return ONLY valid JSON, no additional text or markdown.
+"""
+```
+
+**Balance Sheet:**
+```python
+BALANCE_SHEET_PROMPT_TEMPLATE = """Extract the Balance Sheet (also called Statement of Financial Position) from the following annual report text.
+
+ANNUAL REPORT TEXT:
+{document_text}
+
+EXTRACTION INSTRUCTIONS:
+1. Identify the Balance Sheet section
+2. Extract ALL line items from:
+   ASSETS:
+   - Current Assets (Cash, Receivables, Inventory, etc.)
+   - Non-Current Assets (PP&E, Intangibles, etc.)
+   - Total Assets
+   
+   LIABILITIES:
+   - Current Liabilities (Payables, Short-term debt, etc.)
+   - Non-Current Liabilities (Long-term debt, etc.)
+   - Total Liabilities
+   
+   EQUITY:
+   - Share Capital
+   - Retained Earnings
+   - Other Equity Components
+   - Total Equity
+   
+3. Verify: Total Assets = Total Liabilities + Total Equity
+4. Extract all year columns present
+
+Return JSON following the same schema as Income Statement.
+"""
+```
+
+**Cash Flow Statement:**
+```python
+CASH_FLOW_PROMPT_TEMPLATE = """Extract the Cash Flow Statement (also called Statement of Cash Flows) from the following annual report text.
+
+ANNUAL REPORT TEXT:
+{document_text}
+
+EXTRACTION INSTRUCTIONS:
+1. Identify the Cash Flow Statement section
+2. Extract ALL line items from three sections:
+   
+   OPERATING ACTIVITIES:
+   - Net Income
+   - Adjustments (Depreciation, Changes in Working Capital, etc.)
+   - Net Cash from Operating Activities
+   
+   INVESTING ACTIVITIES:
+   - Capital Expenditures
+   - Acquisitions/Divestitures
+   - Net Cash from Investing Activities
+   
+   FINANCING ACTIVITIES:
+   - Debt Issuance/Repayment
+   - Dividends Paid
+   - Share Buybacks
+   - Net Cash from Financing Activities
+   
+3. Calculate: Net Change in Cash = Operating + Investing + Financing
+4. Extract all year columns present
+
+Return JSON following the same schema as Income Statement.
+"""
+```
+
+## Data Models
+
+### Pydantic Models for Validation
+
+```python
+from pydantic import BaseModel, Field, validator
+from typing import List, Dict, Optional, Literal
+from datetime import date
+
+class LineItemValue(BaseModel):
+    """A single value in a line item (one year/period)."""
+    value: Optional[float] = None
+    footnote_refs: Optional[List[str]] = None
+    confidence: Literal["high", "medium", "low"] = "high"
+
+class LineItem(BaseModel):
+    """A single line item in a financial statement."""
+    name: str = Field(..., min_length=1, max_length=500)
+    values: Dict[str, Optional[float]]  # {"2024": 1000, "2023": 950}
+    indentation_level: int = Field(..., ge=0, le=5)
+    is_subtotal: bool = False
+    is_total: bool = False
+    parent_item: Optional[str] = None
+    footnote_refs: Optional[List[str]] = None
+    confidence: Literal["high", "medium", "low"] = "high"
+    
+    @validator('values')
+    def validate_values(cls, v):
+        """Ensure values are valid numbers or null."""
+        for year, value in v.items():
+            if value is not None and not isinstance(value, (int, float)):
+                raise ValueError(f"Invalid value for {year}: {value}")
+        return v
+
+class ExtractionMetadata(BaseModel):
+    """Metadata about the extraction process."""
+    page_numbers: List[int] = Field(default_factory=list)
+    sections_found: List[str] = Field(default_factory=list)
+    data_quality_score: float = Field(..., ge=0.0, le=1.0)
+    extraction_method: str = "llm"
+    model_used: str
+    tokens_used: int
+    extraction_time_seconds: float
+
+class FinancialStatementExtraction(BaseModel):
+    """Complete financial statement extraction."""
+    statement_type: Literal[
+        "income_statement",
+        "balance_sheet",
+        "cash_flow_statement"
+    ]
+    company_name: str
+    fiscal_year_end: date
+    currency: str = Field(..., pattern="^[A-Z]{3}$")  # ISO 4217
+    line_items: List[LineItem]
+    extraction_metadata: ExtractionMetadata
+    
+    @validator('line_items')
+    def validate_structure(cls, v):
+        """Validate financial statement structure."""
+        if not v:
+            raise ValueError("Line items cannot be empty")
+        return v
+    
+    def to_dict(self) -> Dict:
+        """Convert to dictionary for storage."""
+        return self.dict()
+```
+
+## Extraction Pipeline
+
+### Main Extraction Function
+
+```python
+class FinancialStatementExtractor:
+    """Extract financial statements using LLM."""
+    
+    def __init__(self, llm_client: OpenAIClient):
+        self.llm_client = llm_client
+    
+    async def extract_statement(
+        self,
+        document_text: str,
+        statement_type: str,
+        company_name: str,
+        fiscal_year: int
+    ) -> FinancialStatementExtraction:
+        """
+        Extract a financial statement from document text.
+        
+        Args:
+            document_text: Full text or relevant section from PDF
+            statement_type: 'income_statement', 'balance_sheet', 'cash_flow_statement'
+            company_name: Company name for validation
+            fiscal_year: Expected fiscal year
+            
+        Returns:
+            Structured extraction with metadata
+        """
+        # Select appropriate prompt
+        prompts = {
+            'income_statement': INCOME_STATEMENT_PROMPT_TEMPLATE,
+            'balance_sheet': BALANCE_SHEET_PROMPT_TEMPLATE,
+            'cash_flow_statement': CASH_FLOW_PROMPT_TEMPLATE
+        }
+        
+        prompt = prompts[statement_type].format(document_text=document_text)
+        
+        # Prepare messages
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": prompt}
+        ]
+        
+        # Call LLM with structured output
+        start_time = time.time()
+        
+        try:
+            response_text = await self.llm_client.create_completion(
+                messages=messages,
+                response_format={"type": "json_object"}
+            )
+            
+            extraction_time = time.time() - start_time
+            
+            # Parse and validate response
+            response_data = json.loads(response_text)
+            
+            # Add extraction metadata
+            response_data['extraction_metadata'].update({
+                'extraction_time_seconds': extraction_time,
+                'model_used': self.llm_client.config.model
+            })
+            
+            # Validate with Pydantic
+            extraction = FinancialStatementExtraction(**response_data)
+            
+            # Perform additional validation
+            self._validate_extraction(extraction, fiscal_year)
+            
+            logger.info(
+                f"Successfully extracted {statement_type}",
+                extra={
+                    'company': company_name,
+                    'fiscal_year': fiscal_year,
+                    'line_items': len(extraction.line_items),
+                    'extraction_time': extraction_time,
+                    'quality_score': extraction.extraction_metadata.data_quality_score
+                }
+            )
+            
+            return extraction
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse LLM response as JSON: {e}")
+            raise ExtractionError("Invalid JSON response from LLM")
+        except ValidationError as e:
+            logger.error(f"Extraction validation failed: {e}")
+            raise ExtractionError(f"Invalid extraction structure: {e}")
+    
+    def _validate_extraction(
+        self,
+        extraction: FinancialStatementExtraction,
+        expected_fiscal_year: int
+    ):
+        """
+        Validate extracted data for consistency and completeness.
+        
+        Raises:
+            ExtractionError if validation fails
+        """
+        # Check fiscal year matches
+        if extraction.fiscal_year_end.year != expected_fiscal_year:
+            logger.warning(
+                f"Fiscal year mismatch: expected {expected_fiscal_year}, "
+                f"got {extraction.fiscal_year_end.year}"
+            )
+        
+        # Check for minimum line items
+        min_items = {
+            'income_statement': 10,
+            'balance_sheet': 15,
+            'cash_flow_statement': 10
+        }
+        
+        if len(extraction.line_items) < min_items[extraction.statement_type]:
+            logger.warning(
+                f"Low line item count: {len(extraction.line_items)} "
+                f"(expected >={min_items[extraction.statement_type]})"
+            )
+        
+        # Validate calculations (for balance sheet)
+        if extraction.statement_type == 'balance_sheet':
+            self._validate_balance_sheet_equation(extraction)
+    
+    def _validate_balance_sheet_equation(
+        self,
+        extraction: FinancialStatementExtraction
+    ):
+        """Validate: Assets = Liabilities + Equity."""
+        # Find totals
+        total_assets = None
+        total_liabilities = None
+        total_equity = None
+        
+        for item in extraction.line_items:
+            name_lower = item.name.lower()
+            if 'total assets' in name_lower and item.is_total:
+                total_assets = item.values
+            elif 'total liabilities' in name_lower and item.is_total:
+                total_liabilities = item.values
+            elif 'total equity' in name_lower or 'total shareholders' in name_lower:
+                total_equity = item.values
+        
+        # Validate equation for each year
+        if total_assets and total_liabilities and total_equity:
+            for year in total_assets.keys():
+                assets = total_assets.get(year)
+                liabilities = total_liabilities.get(year)
+                equity = total_equity.get(year)
+                
+                if all(v is not None for v in [assets, liabilities, equity]):
+                    if abs(assets - (liabilities + equity)) > 1:  # Allow $1 rounding
+                        logger.warning(
+                            f"Balance sheet equation doesn't balance for {year}: "
+                            f"Assets={assets}, L+E={liabilities + equity}"
+                        )
+```
+
+## Cost Optimization Strategies
+
+### 1. Intelligent Caching
+
+```python
+import hashlib
+from typing import Optional
+
+class ExtractionCache:
+    """Cache extraction results to avoid duplicate LLM calls."""
+    
+    def __init__(self, redis_client):
+        self.redis = redis_client
+        self.ttl = 86400 * 30  # 30 days
+    
+    def get_cache_key(
+        self,
+        document_text: str,
+        statement_type: str,
+        model: str
+    ) -> str:
+        """Generate cache key from inputs."""
+        # Hash the document text for privacy
+        text_hash = hashlib.sha256(document_text.encode()).hexdigest()
+        return f"extraction:{text_hash}:{statement_type}:{model}"
+    
+    async def get(
+        self,
+        document_text: str,
+        statement_type: str,
+        model: str
+    ) -> Optional[FinancialStatementExtraction]:
+        """Retrieve cached extraction."""
+        key = self.get_cache_key(document_text, statement_type, model)
+        cached = await self.redis.get(key)
+        
+        if cached:
+            logger.info(f"Cache hit for {statement_type}")
+            return FinancialStatementExtraction.parse_raw(cached)
+        
+        return None
+    
+    async def set(
+        self,
+        document_text: str,
+        statement_type: str,
+        model: str,
+        extraction: FinancialStatementExtraction
+    ):
+        """Cache extraction result."""
+        key = self.get_cache_key(document_text, statement_type, model)
+        await self.redis.set(
+            key,
+            extraction.json(),
+            ex=self.ttl
+        )
+```
+
+### 2. Document Preprocessing
+
+```python
+def preprocess_document_for_llm(
+    full_text: str,
+    statement_type: str
+) -> str:
+    """
+    Extract only relevant sections to reduce tokens.
+    
+    Strategy:
+    1. Locate statement section using keywords
+    2. Extract section + context (prev/next pages)
+    3. Remove irrelevant content (headers, footers, page numbers)
+    4. Reduce to ~2000-3000 tokens if possible
+    """
+    # Keywords to locate sections
+    section_keywords = {
+        'income_statement': [
+            'income statement', 'statement of operations',
+            'profit and loss', 'consolidated income'
+        ],
+        'balance_sheet': [
+            'balance sheet', 'statement of financial position',
+            'consolidated balance'
+        ],
+        'cash_flow_statement': [
+            'cash flow statement', 'statement of cash flows',
+            'consolidated cash'
+        ]
+    }
+    
+    keywords = section_keywords[statement_type]
+    
+    # Find section
+    lines = full_text.split('\n')
+    section_start = None
+    
+    for i, line in enumerate(lines):
+        line_lower = line.lower()
+        if any(kw in line_lower for kw in keywords):
+            section_start = i
+            break
+    
+    if section_start is None:
+        logger.warning(f"Could not locate {statement_type} section")
+        return full_text[:10000]  # Fallback: first 10K chars
+    
+    # Extract section + buffer
+    section_end = min(section_start + 200, len(lines))
+    relevant_text = '\n'.join(lines[max(0, section_start-5):section_end])
+    
+    # Remove page numbers, headers, footers
+    relevant_text = remove_page_artifacts(relevant_text)
+    
+    return relevant_text
+```
+
+### 3. Batch Processing
+
+```python
+async def extract_all_statements_batch(
+    pdf_ids: List[int],
+    batch_size: int = 5
+) -> List[Dict]:
+    """
+    Process multiple PDFs in batches to optimize API usage.
+    
+    Batching strategy:
+    - Group PDFs by company (similar formats)
+    - Process {batch_size} concurrently
+    - Share context/examples across batch
+    """
+    results = []
+    
+    for i in range(0, len(pdf_ids), batch_size):
+        batch = pdf_ids[i:i + batch_size]
+        
+        tasks = [
+            extract_statements_for_pdf(pdf_id)
+            for pdf_id in batch
+        ]
+        
+        batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+        results.extend(batch_results)
+    
+    return results
+```
+
+## Error Handling & Recovery
+
+### Retry Logic
+
+```python
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type
+)
+
+@retry(
+    retry=retry_if_exception_type((openai.RateLimitError, openai.APIError)),
+    wait=wait_exponential(multiplier=1, min=4, max=60),
+    stop=stop_after_attempt(5)
+)
+async def extract_with_retry(
+    extractor: FinancialStatementExtractor,
+    document_text: str,
+    statement_type: str,
+    company_name: str,
+    fiscal_year: int
+) -> FinancialStatementExtraction:
+    """Extract with automatic retry on transient failures."""
+    return await extractor.extract_statement(
+        document_text=document_text,
+        statement_type=statement_type,
+        company_name=company_name,
+        fiscal_year=fiscal_year
+    )
+```
+
+### Fallback Strategies
+
+```python
+async def extract_with_fallback(
+    document_text: str,
+    statement_type: str,
+    company_name: str,
+    fiscal_year: int
+) -> FinancialStatementExtraction:
+    """
+    Try multiple extraction strategies in order.
+    
+    Strategy order:
+    1. LLM extraction (GPT-5 Turbo)
+    2. Structured table extraction (if tables detected)
+    3. GPT-5 (non-turbo) extraction
+    4. Manual review flag
+    """
+    strategies = [
+        ('llm_turbo', extract_with_llm_turbo),
+        ('structured_tables', extract_from_tables),
+        ('llm_gpt4', extract_with_gpt4),
+    ]
+    
+    for strategy_name, strategy_func in strategies:
+        try:
+            logger.info(f"Trying extraction strategy: {strategy_name}")
+            result = await strategy_func(
+                document_text, statement_type, company_name, fiscal_year
+            )
+            
+            # Validate result
+            if result.extraction_metadata.data_quality_score > 0.7:
+                return result
+            else:
+                logger.warning(
+                    f"Strategy {strategy_name} returned low quality score"
+                )
+                
+        except Exception as e:
+            logger.warning(f"Strategy {strategy_name} failed: {e}")
+            continue
+    
+    # All strategies failed
+    raise ExtractionError(
+        "All extraction strategies failed. Manual review required."
+    )
+```
+
+## Testing LLM Extraction
+
+### Unit Tests with Mocked LLM
+
+```python
+import pytest
+from unittest.mock import AsyncMock, patch
+
+@pytest.mark.asyncio
+async def test_income_statement_extraction():
+    """Test income statement extraction with mocked LLM."""
+    
+    # Mock LLM response
+    mock_response = {
+        "statement_type": "income_statement",
+        "company_name": "Test Corp",
+        "fiscal_year_end": "2024-12-31",
+        "currency": "EUR",
+        "line_items": [
+            {
+                "name": "Revenue",
+                "values": {"2024": 1000000, "2023": 950000},
+                "indentation_level": 0,
+                "is_subtotal": False,
+                "is_total": False,
+                "confidence": "high"
+            }
+        ],
+        "extraction_metadata": {
+            "page_numbers": [15],
+            "sections_found": ["Income Statement"],
+            "data_quality_score": 0.95,
+            "model_used": "GPT-5-turbo-preview",
+            "tokens_used": 1500,
+            "extraction_time_seconds": 5.2
+        }
+    }
+    
+    with patch('openai.AsyncOpenAI') as mock_client:
+        # Configure mock
+        mock_completion = AsyncMock()
+        mock_completion.choices = [
+            AsyncMock(message=AsyncMock(content=json.dumps(mock_response)))
+        ]
+        mock_completion.usage = AsyncMock(
+            prompt_tokens=1000,
+            completion_tokens=500,
+            total_tokens=1500
+        )
+        mock_client.return_value.chat.completions.create = AsyncMock(
+            return_value=mock_completion
+        )
+        
+        # Run extraction
+        extractor = FinancialStatementExtractor(
+            llm_client=OpenAIClient(LLMConfig())
+        )
+        
+        result = await extractor.extract_statement(
+            document_text="Revenue 2024: 1,000,000 EUR\nRevenue 2023: 950,000 EUR",
+            statement_type="income_statement",
+            company_name="Test Corp",
+            fiscal_year=2024
+        )
+        
+        # Assertions
+        assert result.statement_type == "income_statement"
+        assert len(result.line_items) == 1
+        assert result.line_items[0].values["2024"] == 1000000
+        assert result.extraction_metadata.data_quality_score == 0.95
+```
+
+## AI Code Generation Guidelines
+
+When generating LLM integration code:
+
+1. **Always include**:
+   - Retry logic with exponential backoff
+   - Rate limiting
+   - Cost tracking and logging
+   - Caching mechanism
+   - Validation of extracted data
+   - Error handling for all API calls
+
+2. **Prompt engineering**:
+   - Clear, specific instructions
+   - JSON schema for structured output
+   - Examples of edge cases
+   - Validation rules
+
+3. **Cost optimization**:
+   - Cache results by document hash
+   - Preprocess to reduce tokens
+   - Use cheapest model that works
+   - Batch similar requests
+
+4. **Quality assurance**:
+   - Validate with Pydantic models
+   - Check business rules (e.g., balance sheet equation)
+   - Flag low-confidence extractions
+   - Log all anomalies
+
+5. **Use Context7 MCP** to fetch:
+   - Latest OpenAI API documentation
+   - Pydantic best practices
+   - Async Python patterns
+
+*Treat LLMs as powerful but fallible oracles—prompt with precision, validate relentlessly, optimize for cost, and always have a fallback.*

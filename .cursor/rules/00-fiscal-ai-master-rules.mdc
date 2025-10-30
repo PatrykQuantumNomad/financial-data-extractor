@@ -1,0 +1,109 @@
+---
+description: Master rules for Financial Data Extraction project
+globs: ["*"]
+alwaysApply: true
+autoAttach: true
+---
+
+# Project Overview
+
+**Mission**: Automate extraction of 10 years of financial statements (Income Statement, Balance Sheet, Cash Flow Statement) from European company annual reports.
+**Target Companies**: 2-3 European companies (e.g., Adyen, Heineken)
+**Tech Stack**: FastAPI + Celery + PostgreSQL + Redis + Next.js + React + OpenAI GPT-5
+
+## Project-Specific Principles
+
+### Data Accuracy First
+
+- Financial data must be **100% accurate** - no fabrication or approximation
+- Always validate extracted data against source documents
+- Use confidence scores to flag uncertain extractions
+- Implement multiple validation layers (schema, calculations, business rules)
+- Maintain complete audit trails for all data transformations
+
+### Cost Optimization
+
+- Cache LLM responses aggressively (Redis, keyed by document hash)
+- Preprocess documents to minimize tokens sent to GPT-5
+- Use structured table extraction before falling back to LLM
+- Monitor and alert on API costs (target: <$2 per company for 10 years)
+- Batch similar operations to reduce overhead
+
+### Resilience & Reliability
+
+- All external API calls must have retry logic with exponential backoff
+- Handle rate limits gracefully (429 errors → wait and retry)
+- Implement circuit breakers for failing external services
+- Design Celery tasks to be idempotent (safe to retry)
+- Store intermediate results to avoid reprocessing on failure
+
+### Observability
+
+- Log all critical operations with structured context (JSON)
+- Emit metrics for: API latency, task duration, queue depth, LLM costs
+- Create Grafana dashboards for monitoring extraction pipeline
+- Alert on: task failure rate >5%, queue backlog >1000, API errors
+- Maintain data lineage (track which report each value came from)
+
+## Domain-Specific Guidelines
+
+### Web Scraping
+
+- **Respect robots.txt** and implement polite delays (1-2s between requests)
+- Use proper User-Agent headers
+- Handle timeouts, redirects, SSL errors gracefully
+- Deduplicate PDFs by URL or content hash
+- Store provenance data (URL, timestamp, context)
+
+### PDF Processing
+
+- Support both digital and scanned PDFs (OCR fallback)
+- Extract tables as structured data when possible
+- Classify documents by type (Annual Report, Quarterly, Presentation)
+- Return confidence scores for all classifications
+- Cache extracted text to avoid reprocessing
+
+### LLM Integration
+
+- Use GPT-5 Turbo with `temperature=0.0` (deterministic)
+- Design prompts with clear instructions, examples, and constraints
+- Request structured JSON output (use `response_format: json_object`)
+- Validate responses with Pydantic models
+- Implement fallback strategies (structured tables → LLM → manual review)
+- Track tokens and costs per operation
+
+### Financial Data Normalization
+
+- Use fuzzy matching (rapidfuzz) to group similar line item names
+- Prioritize manual mappings (user-defined overrides)
+- Always use restated data from newer reports over older values
+- Maintain display order following standard accounting structure
+- Validate calculations (e.g., Assets = Liabilities + Equity)
+- Flag anomalies (e.g., >500% year-over-year change)
+
+## Common Pitfalls to Avoid
+
+1. **LLM Costs**: Don't send full PDFs to GPT-5 → preprocess and extract relevant sections
+2. **Memory Leaks**: Stream large files, don't load in memory
+3. **Rate Limits**: Implement exponential backoff, don't hammer APIs
+4. **Data Quality**: Always validate, never trust LLM output blindly
+5. **Circular Imports**: Keep module dependencies clear
+6. **Blocking I/O**: Use async/await, don't block event loop
+7. **Silent Failures**: Log all errors, never swallow exceptions
+8. **Hardcoded Values**: Use config files, environment variables
+9. **Missing Tests**: Test edge cases, not just happy paths
+10. **Poor Error Messages**: Be specific, include context
+
+## Summary
+
+This project requires:
+
+1. **Precision**: Financial data must be exact
+2. **Resilience**: Handle failures gracefully
+3. **Efficiency**: Optimize costs and performance
+4. **Observability**: Monitor everything
+5. **Quality**: Test thoroughly, validate rigorously
+
+Follow the specialized rule files for each domain, and always prioritize data accuracy over speed or convenience.
+
+**When in doubt**: Validate, log, and ask for human review rather than guessing.

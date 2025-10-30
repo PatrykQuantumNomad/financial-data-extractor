@@ -1,0 +1,95 @@
+---
+description: REST API design rules for FastAPI services (naming, JSON shape, headers, HTTP semantics, compatibility, security)
+globs: ["backend/**/*.py", "api/**/*.py", "services/**/*.py"]
+autoAttach: true
+---
+
+# API Design Rules
+
+These rules apply to all HTTP APIs in this repo. They are **binding** for code generation, reviews, and refactors.
+
+## General
+
+- **Must**: Write APIs in **U.S. English**.
+- **Must**: Follow **API‑First** (design outside code first; get peer/client feedback). Keep API stable independent of implementation details.
+- **Must**: Provide an **OpenAPI** reference (generated via FastAPI) and keep it accurate.
+
+## Security
+
+- **Must**: Secure endpoints with **OAuth 2.0** + **JWT** (Bearer) and define roles/scopes.
+- **Must**: Enforce access rights with RBAC/ABAC where appropriate.
+- **Should**: Add security headers (CORS, CSP, HSTS) and validate content.
+
+## Compatibility & Versioning
+
+- **Must**: Don’t break backward compatibility.
+- **Should**: Avoid versioning when possible; if unavoidable, prefer:
+  - new resource variant/path,
+  - new service/endpoint,
+  - or parallel API version **documented** in OpenAPI (not path).
+- **Should**: Provide **version info in OpenAPI** (info.version) and deprecation notes.
+
+## JSON Conventions
+
+- **Must**: Use **consistent property names**; **snake_case** only (never camelCase); ASCII subset.
+- **Must**: Use consistent property values.
+- **Must**: Boolean properties **must not be null** (use enums if “unknown” is required).
+- **Must**: **Date/Time** values conform to **RFC 3339** (`YYYY-MM-DD`, `YYYY-MM-DDTHH:MM:SSZ`).
+- **Must**: Use standards for **language, country, currency** codes.
+- **Should**: Avoid reserved JavaScript keywords.
+- **Should**: Array property names are **pluralized**.
+- **Should**: Do **not** remove fields that are null (preserve schema); empty arrays should be `[]`, not `null`.
+- **Should**: Represent enums as **strings**.
+- **Could**: Use ISO‑8601 durations/intervals where applicable.
+
+### FastAPI/Pydantic enforcement
+
+- Set `Config` with `alias_generator` to emit **snake_case** and `populate_by_name=True`.
+- Use `response_model` on routes; set `model_config = {"extra": "forbid"}` to reject unknown fields.
+- Use `jsonable_encoder` for safe serialization.
+
+## API Naming
+
+- **Must**: Path segments are **lowercase hyphenated** words: `/purchase-orders/{purchase-order-id}`.
+- **Must**: **Query parameters** use **snake_case**.
+- **Must**: **HTTP headers** are **Hyphenated** (Prefer **Hyphenated‑Pascal‑Case** where conventional).
+- **Must**: **Pluralize resource** names; avoid trailing slashes (no semantics).
+- **Must**: Use **conventional query strings**: `page`, `size`, `sort=field,asc|desc`.
+- **Could**: Prefer standardized headers where available.
+
+## Resources
+
+- **Must**: Think **resources**, not actions; keep URLs **verb‑free**.
+- **Must**: Use **domain‑specific** resource names.
+- **Must**: Identify resources and sub‑resources by path segments: `/{resources}/{id}/{sub-resources}/{sub-id}`.
+- **Should**: Define **useful** resources that satisfy ~90% of client use cases with minimal payload.
+- **Should**: Limit total resources and **nesting ≤ 3 levels**.
+
+## HTTP Semantics
+
+- **Must**: Use methods correctly and respect safety/idempotency:
+  - `GET` (safe, idempotent) — no body; 200/404.
+  - `POST` (not safe, not idempotent) — create/action; 200/201/202.
+  - `PUT` (idempotent) — replace; 200/204/201.
+  - `PATCH` (not idempotent) — partial update; 200/204; prefer JSON Merge Patch; consider JSON Patch only when necessary.
+  - `DELETE` (idempotent) — delete; 200/204/404/410.
+  - `HEAD`, `OPTIONS` as specified.
+- **Must**: Use **meaningful status codes** (include 409 for optimistic locking conflicts).
+- **Must**: Provide **error documentation** and do **not** expose stack traces.
+- **Must**: Support **rate limiting** with **429** and rate‑limit headers (for public/external APIs).
+- **Must**: Use **ETag**/**Last‑Modified** and conditional requests:
+  - On `GET`: send `ETag`/`Last-Modified`; honor `If-None-Match`/`If-Modified-Since` → `304`.
+  - On `PUT/PATCH/DELETE`: require `If-Match` with current `ETag`; on mismatch → `412`.
+- **Must**: Use **Content‑\* headers** correctly; include **Content‑Location** when returning the updated representation after `POST/PUT/PATCH`.
+
+## AI Behavior (Backend APIs)
+
+When generating FastAPI endpoints, **enforce** these rules automatically:
+
+- Define `response_model` and Pydantic schemas using **snake_case**.
+- Validate and coerce dates/times to **RFC 3339** via `datetime` with timezone awareness (UTC by default).
+- Add OAuth2/JWT dependencies (`HTTPBearer`, `OAuth2PasswordBearer`) and scope checks.
+- Implement ETag/conditional logic and set rate‑limit headers where relevant.
+- Return precise status codes; include `problem+json` style error bodies.
+- Document operations with OpenAPI `summary`, `description`, and `responses` sections.
+- Avoid URI versioning; include version in OpenAPI `info.version` and `X‑API‑Version` response header if needed.

@@ -1,0 +1,61 @@
+---
+description: Testing, quality assurance, and code coverage standards
+globs: ["tests/**/*", "**/*test*.py", "**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"]
+autoAttach: true
+---
+
+# Testing & Quality Assurance Rules
+
+You are an expert in **pytest**, **FastAPI testing**, **React Testing Library**, **test automation**, and **quality assurance**.  
+Generate comprehensive test suites that ensure **reliability**, **correctness**, and **maintainability**.
+
+## Core Principles
+
+- **Test behavior, not implementation** details.
+- Maintain **minimum 80% code coverage**, aim for 90%+.
+- Write tests that are **fast**, **isolated**, and **deterministic**.
+- Use **fixtures** for shared setup, avoid duplication.
+- Follow **AAA pattern**: Arrange, Act, Assert.
+- Mock **external dependencies** (APIs, databases in unit tests).
+- Include **integration tests** for critical paths.
+- Automate testing in **CI/CD pipeline**.
+
+> *Code without tests is legacy code. Tests are living documentation.*
+
+## Key Test Scenarios
+
+1. **PDF Scraping**: Mock HTTP responses, test URL parsing
+2. **Classification**: Test each classification method independently
+3. **LLM Extraction**: Mock OpenAI responses, validate Pydantic models
+4. **Normalization**: Test fuzzy matching, restated data prioritization
+5. **API Endpoints**: Test all CRUD operations, error cases
+6. **Celery Tasks**: Test with `task_always_eager=True`
+
+## AI Code Generation Guidelines
+
+When generating test code:
+
+1. **Always include**:
+   - Arrange-Act-Assert structure
+   - Clear test names describing what's tested
+   - Both positive and negative test cases
+   - Mock external dependencies
+   - Fixtures for shared setup
+
+2. **Test naming**: Descriptive and action-based
+   - ✅ `test_should_validate_user_input`, `test_returns_404_for_missing_resource`
+   - ❌ `test1`, `test_function`
+
+3. **Always test**:
+   - Happy path
+   - Error conditions
+   - Edge cases (empty, null, boundary values)
+   - Business logic
+   - Data validation
+
+4. **Use Context7 MCP** to fetch:
+   - Latest pytest patterns
+   - React Testing Library best practices
+   - Testing framework updates
+
+*Tests are not just verification—they're specification, documentation, and safety net.*

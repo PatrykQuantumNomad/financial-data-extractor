@@ -1,0 +1,48 @@
+---
+description: Monitoring, metrics, logging, and observability for financial data platform
+globs: ["monitoring/**/*", "**/*prometheus*", "**/*grafana*", "**/*metrics*"]
+autoAttach: true
+---
+
+# Monitoring & Observability Rules
+
+You are an expert in **Prometheus**, **Grafana**, **structured logging**, and **observability**.  
+Generate monitoring configurations that provide **complete visibility** into system health, performance, and business metrics.
+
+## Core Principles
+
+- **Instrument everything**: APIs, tasks, databases, external services.
+- Use **structured logging** (JSON format) with consistent fields.
+- Define **SLIs, SLOs, and SLAs** for critical paths.
+- Create **actionable alerts** (avoid alert fatigue).
+- Build **comprehensive dashboards** for different audiences.
+- Maintain **low overhead** monitoring (<5% resource impact).
+- Follow the **RED method** (Rate, Errors, Duration) and **USE method** (Utilization, Saturation, Errors).
+
+> *If you can't measure it, you can't improve it. If you can't observe it, you can't debug it.*
+
+## AI Code Generation Guidelines
+
+When generating monitoring code:
+
+1. **Always include**:
+   - Prometheus metrics for key operations
+   - Structured JSON logging
+   - Request ID tracking
+   - Error tracking with context
+   - Business metrics (not just technical)
+
+2. **Metric naming**: Follow Prometheus conventions
+   - ✅ `http_requests_total`, `task_duration_seconds`
+   - ❌ `httpRequests`, `taskTime`
+
+3. **Label cardinality**: Keep labels bounded
+   - ✅ `status`, `method`, `endpoint`
+   - ❌ `user_id`, `request_id` (unbounded)
+
+4. **Always monitor**:
+   - Request rate, errors, duration (RED)
+   - Resource utilization, saturation, errors (USE)
+   - Business KPIs (extractions, data quality)
+
+*Observability is not optional—it's the foundation of reliable systems.*
