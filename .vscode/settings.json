@@ -53,6 +53,21 @@
     }
   },
 
+  "[JSON]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[YAML]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+
+  "python.defaultInterpreterPath": "backend/.venv/bin/python",
+  "python.venvPath": "backend/.venv",
+  "ruff.path": "backend/.venv/bin/ruff",
+  "pylint.path": "backend/.venv/bin/pylint",
+  "pylint.args": ["--rcfile=backend/.pypirc.toml"],
+
   "[markdown]": {
     "editor.wordWrapColumn": 80,
     "editor.wordWrap": "wordWrapColumn",
@@ -104,5 +119,24 @@
   // Breadcrumbs for better navigation
   "breadcrumbs.enabled": true,
   "breadcrumbs.symbolPath": "on",
-  "cSpell.words": []
+  "cSpell.words": [
+    "asyncio",
+    "conninfo",
+    "fastapi",
+    "htmlcov",
+    "httpx",
+    "loglevel",
+    "mypy",
+    "poolclass",
+    "psql",
+    "pycache",
+    "pydantic",
+    "pylint",
+    "pyproject",
+    "pytest",
+    "repr",
+    "sqlalchemy",
+    "uvicorn",
+    "VENV"
+  ]
 }

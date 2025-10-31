@@ -1,0 +1,70 @@
+name: financial-data-extractor-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fde-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: financial_data_extractor
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      # Improve performance for local dev; safe for local only
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  pgadmin:
+    image: dpage/pgadmin4:9.9
+    container_name: fde-pgadmin
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@local.dev
+      PGADMIN_DEFAULT_PASSWORD: adminadmin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+
+  redis:
+    image: redis:8-alpine
+    container_name: fde-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: fde-redis-commander
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+
+volumes:
+  postgres-data:
+  pgadmin-data:
+  redis-data:
