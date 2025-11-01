@@ -36,6 +36,7 @@ dependencies = [
     # Monitoring & Logging
     "prometheus-client>=0.21.0,<0.22.0",
     "structlog>=24.4.0,<25.0.0",
+    "flower>=2.0.0,<3.0.0",  # Celery monitoring dashboard
     # Utils
     "python-dotenv>=1.0.0,<2.0.0",
     "rapidfuzz>=3.10.0,<4.0.0", # Fuzzy matching

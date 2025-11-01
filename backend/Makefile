@@ -104,13 +104,20 @@ run: ## Run the FastAPI server via run.py
 	$(UV) run python run.py
 
 # Celery
-celery-worker: ## Start Celery worker
+celery-worker: ## Start Celery worker (listens to all queues)
 	@echo "$(COLOR_GREEN)Starting Celery worker...$(COLOR_RESET)"
-	$(UV) run celery -A app.tasks.celery_app worker --loglevel=info
+	@echo "$(COLOR_YELLOW)Listening to queues: scraping, extraction, compilation, orchestration, default$(COLOR_RESET)"
+	$(UV) run celery -A app.tasks.celery_app worker --loglevel=info -Q scraping,extraction,compilation,orchestration,default
 
 celery-beat: ## Start Celery beat scheduler
 	@echo "$(COLOR_GREEN)Starting Celery beat scheduler...$(COLOR_RESET)"
 	$(UV) run celery -A app.tasks.celery_app beat --loglevel=info
+
+celery-flower: ## Start Flower dashboard for Celery monitoring
+	@echo "$(COLOR_GREEN)Starting Flower dashboard...$(COLOR_RESET)"
+	@echo "$(COLOR_YELLOW)Flower will be available at http://localhost:5555$(COLOR_RESET)"
+	@echo "$(COLOR_YELLOW)Persistent mode enabled to show task history$(COLOR_RESET)"
+	$(UV) run celery -A app.tasks.celery_app flower --port=5555 --persistent=True
 
 # Database migrations
 migrate: migrate-up ## Alias for migrate-up
@@ -227,3 +234,20 @@ version: ## Show version information
 	@echo "Version: $$(grep '^version' pyproject.toml | cut -d '"' -f 2)"
 	@echo "Python: $$($(PYTHON) --version)"
 	@echo "UV: $$($(UV) --version)"
+
+# Task testing
+test-task: ## Test Celery tasks (usage: make test-task COMMAND="company-scrape 1")
+	@if [ -z "$(COMMAND)" ]; then \
+		echo "$(COLOR_YELLOW)Usage: make test-task COMMAND=\"company-scrape 1\"$(COLOR_RESET)"; \
+		echo "$(COLOR_CYAN)Run: ./scripts/test_tasks.sh help$(COLOR_RESET)"; \
+	else \
+		./scripts/test_tasks.sh $(COMMAND); \
+	fi
+
+test-task-poll: ## Test Celery task with polling (usage: make test-task-poll COMMAND="company-scrape 1")
+	@if [ -z "$(COMMAND)" ]; then \
+		echo "$(COLOR_YELLOW)Usage: make test-task-poll COMMAND=\"company-scrape 1\"$(COLOR_RESET)"; \
+		echo "$(COLOR_CYAN)Run: ./scripts/test_tasks.sh help$(COLOR_RESET)"; \
+	else \
+		POLL=true ./scripts/test_tasks.sh $(COMMAND); \
+	fi

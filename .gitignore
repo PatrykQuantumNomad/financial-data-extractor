@@ -131,6 +131,13 @@ __pypackages__/
 celerybeat-schedule
 celerybeat.pid
 
+# Flower (Celery monitoring dashboard)
+# SQLite database files created when running with --persistent=True
+flower
+flower-shm
+flower-wal
+*.db
+
 # SageMath parsed files
 *.sage.py
 

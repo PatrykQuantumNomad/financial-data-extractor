@@ -147,6 +147,8 @@ Naive system architecture.
 3. **Monitoring**: Flower dashboard for task tracking
 4. **Workflows**: Complex pipelines (scrape → classify → extract → compile)
 
+See [Task Processing Documentation](docs/task-processing.md) for complete details on the Celery task system.
+
 ## Monitoring & Observability
 
 ### Key Metrics

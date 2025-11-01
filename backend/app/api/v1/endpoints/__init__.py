@@ -11,10 +11,12 @@ from app.api.v1.endpoints.companies import router as companies_router
 from app.api.v1.endpoints.compiled_statements import router as compiled_statements_router
 from app.api.v1.endpoints.documents import router as documents_router
 from app.api.v1.endpoints.extractions import router as extractions_router
+from app.api.v1.endpoints.tasks import router as tasks_router
 
 __all__ = [
     "companies_router",
     "documents_router",
     "extractions_router",
     "compiled_statements_router",
+    "tasks_router",
 ]

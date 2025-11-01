@@ -14,6 +14,7 @@ from app.api.v1.endpoints import (
     compiled_statements_router,
     documents_router,
     extractions_router,
+    tasks_router,
 )
 
 api_router = APIRouter()
@@ -23,5 +24,6 @@ api_router.include_router(companies_router, prefix="/api/v1")
 api_router.include_router(documents_router, prefix="/api/v1")
 api_router.include_router(extractions_router, prefix="/api/v1")
 api_router.include_router(compiled_statements_router, prefix="/api/v1")
+api_router.include_router(tasks_router, prefix="/api/v1")
 
 __all__ = ["api_router"]

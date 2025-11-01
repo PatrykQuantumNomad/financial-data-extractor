@@ -175,6 +175,8 @@ graph TB
 3. **Monitoring**: Flower dashboard for task tracking
 4. **Workflows**: Complex pipelines (scrape → classify → extract → compile)
 
+See [Task Processing Documentation](task-processing.md) for complete details on the Celery task system, Flower monitoring, and task management.
+
 ## Technology Stack
 
 ### Backend

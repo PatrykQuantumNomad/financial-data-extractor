@@ -453,6 +453,194 @@ DELETE /api/v1/compiled-statements/{compiled-statement-id}
 
 **Response:** 204 No Content
 
+---
+
+### Tasks
+
+Manage asynchronous Celery tasks for long-running operations.
+
+For detailed information about task processing, see [Task Processing Documentation](../task-processing.md).
+
+#### Trigger Company Financial Data Extraction
+
+```http
+POST /api/v1/tasks/companies/{company_id}/extract
+```
+
+**Path Parameters:**
+- `company_id` (int): Unique company identifier
+
+**Response:** Task response with task ID
+```json
+{
+  "task_id": "a00d8c65-c7fd-4360-8f4c-836b0df25f59",
+  "status": "PENDING",
+  "message": "Financial data extraction started for company 1"
+}
+```
+
+**Description:** Triggers the complete financial data extraction workflow:
+1. Scrapes investor relations website
+2. Discovers and classifies documents
+3. Downloads PDFs
+4. Extracts financial statements
+5. Normalizes and compiles statements
+
+**Estimated Duration:** 10 minutes - 2 hours
+
+---
+
+#### Trigger Investor Relations Scraping
+
+```http
+POST /api/v1/tasks/companies/{company_id}/scrape
+```
+
+**Path Parameters:**
+- `company_id` (int): Unique company identifier
+
+**Response:** Task response with task ID
+```json
+{
+  "task_id": "b12e9d76-d8ae-5471-9f5d-947c1ef36f60",
+  "status": "PENDING",
+  "message": "Scraping started for company 1"
+}
+```
+
+**Description:** Scrapes the investor relations website to discover PDF documents.
+
+**Estimated Duration:** 30 seconds - 5 minutes
+
+---
+
+#### Trigger Company Statements Recompilation
+
+```http
+POST /api/v1/tasks/companies/{company_id}/recompile
+```
+
+**Path Parameters:**
+- `company_id` (int): Unique company identifier
+
+**Response:** Task response with task ID
+
+**Description:** Recompiles all financial statements after new extractions. Useful when new documents are processed and statements need updating.
+
+**Estimated Duration:** 1-5 minutes
+
+---
+
+#### Trigger Document Processing
+
+```http
+POST /api/v1/tasks/documents/{document_id}/process
+```
+
+**Path Parameters:**
+- `document_id` (int): Unique document identifier
+
+**Response:** Task response with task ID
+
+**Description:** Processes a document end-to-end:
+1. Classifies document type
+2. Downloads PDF (if needed)
+3. Extracts financial statements (for annual reports)
+
+**Estimated Duration:** 2-10 minutes
+
+---
+
+#### Trigger PDF Download
+
+```http
+POST /api/v1/tasks/documents/{document_id}/download
+```
+
+**Path Parameters:**
+- `document_id` (int): Unique document identifier
+
+**Response:** Task response with task ID
+
+**Description:** Downloads PDF document from URL and stores locally.
+
+**Estimated Duration:** 5-30 seconds
+
+---
+
+#### Trigger Document Classification
+
+```http
+POST /api/v1/tasks/documents/{document_id}/classify
+```
+
+**Path Parameters:**
+- `document_id` (int): Unique document identifier
+
+**Response:** Task response with task ID
+
+**Description:** Classifies document by type (annual_report, quarterly_report, etc.) using filename patterns, URL patterns, and content analysis.
+
+**Estimated Duration:** 1-5 seconds
+
+---
+
+#### Trigger Financial Statement Extraction
+
+```http
+POST /api/v1/tasks/documents/{document_id}/extract
+```
+
+**Path Parameters:**
+- `document_id` (int): Unique document identifier
+
+**Response:** Task response with task ID
+
+**Description:** Extracts financial statements (Income Statement, Balance Sheet, Cash Flow Statement) from PDF using LLM.
+
+**Estimated Duration:** 2-5 minutes per document
+
+---
+
+#### Get Task Status
+
+```http
+GET /api/v1/tasks/{task_id}
+```
+
+**Path Parameters:**
+- `task_id` (string): Celery task identifier
+
+**Response:** Task status with result or error
+```json
+{
+  "task_id": "a00d8c65-c7fd-4360-8f4c-836b0df25f59",
+  "status": "SUCCESS",
+  "result": {
+    "task_id": "...",
+    "company_id": 1,
+    "status": "success",
+    "discovered_count": 12,
+    "created_count": 12,
+    "documents": [...]
+  },
+  "error": null
+}
+```
+
+**Status Values:**
+- `PENDING` - Task is waiting to be processed
+- `STARTED` - Task has started execution
+- `PROGRESS` - Task is in progress (check `result.meta` for details)
+- `SUCCESS` - Task completed successfully
+- `FAILURE` - Task failed (check `error` field)
+- `RETRY` - Task is being retried
+- `REVOKED` - Task was cancelled
+
+**Description:** Checks the current status and result of a Celery task. Results expire after 1 hour. Use Flower dashboard for persistent task history.
+
+---
+
 ## Common Response Formats
 
 ### Success Response
@@ -541,7 +729,7 @@ CORS is configured to allow cross-origin requests from specified origins. In dev
 
 ## Request Timeout
 
-Default request timeout is 60 seconds. Long-running operations should be handled asynchronously via Celery tasks.
+Default request timeout is 60 seconds. Long-running operations should be handled asynchronously via Celery tasks. See [Task Processing Documentation](../task-processing.md) for details.
 
 ## Examples
 

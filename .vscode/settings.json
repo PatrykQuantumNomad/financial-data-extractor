@@ -120,6 +120,7 @@
   "cSpell.words": [
     "astext",
     "asyncio",
+    "autoretry",
     "conninfo",
     "fastapi",
     "htmlcov",

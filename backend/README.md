@@ -6,6 +6,7 @@ FastAPI backend for scraping, classifying, parsing, and compiling multi-year fin
 
 - **FastAPI** - High-performance async web framework
 - **Celery** - Distributed task queue
+- **Flower** - Real-time Celery monitoring dashboard
 - **PostgreSQL** - Primary database
 - **Redis** - Caching and message broker
 - **SQLAlchemy** - ORM
@@ -49,7 +50,15 @@ make celery-worker
 
 # Start Celery beat scheduler
 make celery-beat
+
+# Start Flower dashboard (task monitoring)
+make celery-flower
+
+# Test tasks via API
+make test-task COMMAND="company-scrape 1"
 ```
+
+See [Task Processing Documentation](../../docs/task-processing.md) for detailed information about the Celery task system.
 
 ### Testing
 
@@ -137,6 +146,22 @@ make update-deps
 # Update all dependencies
 make update-deps-dev
 ```
+
+### Task Testing
+
+```bash
+# Test a task (usage: make test-task COMMAND="company-scrape 1")
+make test-task COMMAND="company-scrape 1"
+
+# Test with auto-polling until completion
+make test-task-poll COMMAND="company-scrape 1"
+
+# Or use the script directly
+./scripts/test_tasks.sh help
+./scripts/test_tasks.sh company-scrape 1
+```
+
+See [Task Processing Documentation](../../docs/task-processing.md) for complete task management guide.
 
 ### Utilities
 
