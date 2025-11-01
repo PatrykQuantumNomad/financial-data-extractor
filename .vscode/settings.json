@@ -136,6 +136,7 @@
     "pyproject",
     "pytest",
     "repr",
+    "shadcn",
     "sqlalchemy",
     "uvicorn",
     "VENV"

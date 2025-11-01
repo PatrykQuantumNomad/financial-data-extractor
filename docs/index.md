@@ -293,7 +293,7 @@ This documentation site provides comprehensive guides for:
 ### Development
 
 - **Backend Development** - FastAPI setup, database models, API endpoints
-- **Frontend Development** - Next.js components, data visualization
+- **[Frontend Architecture](frontend-architecture)** - Next.js 15 architecture, components, and development guide
 
 ### Processing & Data
 

@@ -1,0 +1,59 @@
+{
+  "compilerOptions": {
+    /* ------------------- Base options ------------------- */
+    "target": "ES2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["dom", "dom.iterable", "es2022"],
+    "allowJs": true,
+    "checkJs": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "useDefineForClassFields": false,
+    "noEmit": true,
+    /* ------------------- Interop ------------------- */
+    "esModuleInterop": true,
+    /* ------------------- JSX / React ------------------- */
+    "jsx": "preserve",
+    "jsxImportSource": "react",
+    /* ------------------- Strictness ------------------- */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    /* ------------------- Misc ------------------- */
+    "skipLibCheck": true,
+    /* ------------------- Next‑specific ------------------- */
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    /* ------------------- Path aliases ------------------- */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/lib/*": ["./src/lib/*"],
+      "@/types/*": ["./src/types/*"],
+      "@/tests/*": ["./src/__tests__/*"]
+    },
+    "incremental": true,
+    /* ------------------- Types ------------------- */
+    "types": ["node"]
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.cjs",
+    "**/*.js",
+    ".next/types/**/*.ts",
+    "prettier.config.mjs",
+    "eslint.config.mjs",
+    "vitest.config.ts"
+  ],
+  "exclude": ["node_modules", ".next", "dist", "build"]
+}

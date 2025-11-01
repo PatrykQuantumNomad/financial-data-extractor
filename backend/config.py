@@ -49,7 +49,7 @@ class Settings(BaseSettings):
 
     # Server configuration
     host: str = Field("0.0.0.0", description="Host address where the server will listen.")
-    port: int = Field(3000, description="Port number on which the server will run.")
+    port: int = Field(3030, description="Port number on which the server will run.")
     request_timeout: int = Field(
         60, description="Timeout duration for incoming requests in seconds."
     )
