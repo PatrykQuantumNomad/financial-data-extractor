@@ -24,14 +24,15 @@ def upgrade() -> None:
         'companies',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('name', sa.String(), nullable=False),
-        sa.Column('ticker', sa.String(length=10), nullable=False),
+        sa.Column('primary_ticker', sa.String(length=10), nullable=True),
+        sa.Column('tickers', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column('ir_url', sa.String(), nullable=False),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('ticker')
+        sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_companies_id'), 'companies', ['id'], unique=False)
-    op.create_index(op.f('ix_companies_ticker'), 'companies', ['ticker'], unique=True)
+    op.create_index(op.f('ix_companies_primary_ticker'), 'companies', ['primary_ticker'], unique=False)
+    op.create_index('ix_companies_tickers', 'companies', ['tickers'], unique=False, postgresql_using='gin')
 
     # Create documents table
     op.create_table(
@@ -104,6 +105,7 @@ def downgrade() -> None:
     op.drop_table('documents')
 
     # Drop companies table
-    op.drop_index(op.f('ix_companies_ticker'), table_name='companies')
+    op.drop_index('ix_companies_tickers', table_name='companies')
+    op.drop_index(op.f('ix_companies_primary_ticker'), table_name='companies')
     op.drop_index(op.f('ix_companies_id'), table_name='companies')
     op.drop_table('companies')

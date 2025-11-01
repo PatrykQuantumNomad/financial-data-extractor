@@ -180,6 +180,23 @@ class FastAPIAppBuilder:
 
         return self
 
+    def setup_api_routes(self) -> "FastAPIAppBuilder":
+        """Registers the API routes for the FastAPI application.
+
+        This method includes the API v1 router with all business endpoints
+        (companies, documents, extractions, compiled statements).
+
+        Returns:
+            FastAPIAppBuilder: The instance of the builder (self).
+        """
+        # Include API v1 router with all business endpoints
+        from app.api.v1 import api_router
+
+        self.fast_api.include_router(api_router)
+
+        self.logger.info("API v1 routes have been registered successfully.")
+        return self
+
     def setup_routes(self) -> "FastAPIAppBuilder":
         """Defines and registers the general routes for the FastAPI application.
 
@@ -189,7 +206,6 @@ class FastAPIAppBuilder:
         Returns:
             FastAPIAppBuilder: The instance of the builder (self).
         """
-
         @self.fast_api.get("/healthcheck", tags=["Health"])
         async def health_check():  # type: ignore
             """Endpoint for health checking the application."""
@@ -205,7 +221,7 @@ class FastAPIAppBuilder:
                     <title>Welcome</title>
                 </head>
                 <body>
-                    <h1>Welcome to the Kubert Agent FastAPI service!</h1>
+                    <h1>Welcome to the Financial Data Extractor API!</h1>
                 </body>
                 </html>
                 """

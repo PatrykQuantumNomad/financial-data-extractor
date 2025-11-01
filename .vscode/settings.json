@@ -65,8 +65,6 @@
   "python.defaultInterpreterPath": "backend/.venv/bin/python",
   "python.venvPath": "backend/.venv",
   "ruff.path": "backend/.venv/bin/ruff",
-  "pylint.path": "backend/.venv/bin/pylint",
-  "pylint.args": ["--rcfile=backend/.pypirc.toml"],
 
   "[markdown]": {
     "editor.wordWrapColumn": 80,
@@ -120,6 +118,7 @@
   "breadcrumbs.enabled": true,
   "breadcrumbs.symbolPath": "on",
   "cSpell.words": [
+    "astext",
     "asyncio",
     "conninfo",
     "fastapi",
@@ -127,6 +126,7 @@
     "httpx",
     "loglevel",
     "mypy",
+    "ondelete",
     "poolclass",
     "psql",
     "pycache",

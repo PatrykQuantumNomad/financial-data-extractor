@@ -37,6 +37,7 @@ def create_app() -> FastAPI:
         .setup_logging()  # Configure logging
         .setup_metrics()  # Setup Prometheus metrics
         .setup_error_handlers()  # Configure error handlers
+        .setup_api_routes()  # Register API v1 routes
         .setup_routes()  # Define basic routes
         .setup_middleware()  # Configure middleware
         .build()

@@ -109,6 +109,11 @@ make migrate-create NAME="description"
 
 # Show migration history
 make migrate-history
+
+# Database inspection (uses db_manager.py)
+make db-list-companies  # List all companies with ticker details
+make db-info            # Show database info and migration status
+make db-reset           # Reset database (WARNING: destructive)
 ```
 
 ### Dependency Management

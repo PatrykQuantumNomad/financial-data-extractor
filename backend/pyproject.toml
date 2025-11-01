@@ -54,7 +54,6 @@ dev = [
     "black>=24.0.0,<25.0.0",
     "ruff>=0.14.0,<0.15.0",
     "mypy>=1.11.0,<2.0.0",
-    "pylint>=3.3.0,<4.0.0",
 ]
 
 # Build system
@@ -69,12 +68,6 @@ packages = ["app"]
 [tool.black]
 line-length = 100
 include = '\.pyi?$'
-
-[tool.pylint.messages_control]
-disable = [
-    "invalid-name",
-    "wrong-import-position",
-]
 
 [tool.ruff]
 line-length = 100

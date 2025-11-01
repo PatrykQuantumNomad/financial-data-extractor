@@ -1,8 +1,8 @@
 """
 This module manages the lifespan of the FastAPI application.
 
-It initializes and cleans up essential resources such as the database connection pool,
-checkpointing, and graph building upon application startup and shutdown.
+It initializes and cleans up essential resources such as the database connection pool.
+Ensures proper cleanup of resources upon application startup and shutdown.
 
 Author: Patryk Golabek
 Company: Translucent Computing Inc.
@@ -44,9 +44,8 @@ class LifespanManager:
         """
         Lifespan event handler to initialize and cleanup resources.
 
-        This context manager initializes the database connection pool, creates a checkpointer,
-        builds state graphs for agents, and ensures proper cleanup of resources
-        upon application shutdown.
+        This context manager initializes the database connection pool
+        and ensures proper cleanup of resources upon application shutdown.
 
         Args:
             app (FastAPI): The FastAPI application instance.

@@ -174,7 +174,7 @@ docker-run: ## Run Docker container
 	@echo "$(COLOR_GREEN)Running Docker container...$(COLOR_RESET)"
 	docker run -p 8000:8000 financial-data-extractor:latest
 
-# Database helpers (for future use)
+# Database helpers
 db-reset: ## Reset database (WARNING: destructive)
 	@echo "$(COLOR_YELLOW)⚠️  WARNING: This will destroy all data!$(COLOR_RESET)"
 	@read -p "Are you sure? [y/N] " -n 1 -r; \
@@ -184,6 +184,14 @@ db-reset: ## Reset database (WARNING: destructive)
 		$(UV) run alembic upgrade head; \
 		echo "$(COLOR_GREEN)✓ Database reset!$(COLOR_RESET)"; \
 	fi
+
+db-list-companies: ## List all companies in database
+	@echo "$(COLOR_GREEN)Listing companies...$(COLOR_RESET)"
+	@$(UV) run python scripts/db_manager.py list-companies
+
+db-info: ## Show database info and migration status
+	@echo "$(COLOR_GREEN)Database information:$(COLOR_RESET)"
+	@$(UV) run python scripts/db_manager.py info
 
 db-shell: ## Open database shell
 	@echo "$(COLOR_GREEN)Opening database shell...$(COLOR_RESET)"

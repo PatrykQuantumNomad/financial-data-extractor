@@ -2,11 +2,22 @@
 """
 Database management utility script for development.
 
-Usage:
-    python scripts/db_manager.py migrate      # Run all pending migrations
-    python scripts/db_manager.py reset        # Drop all tables and re-migrate
-    python scripts/db_manager.py seed         # Seed database with test data
-    python scripts/db_manager.py status       # Show migration status
+This script provides database inspection utilities that complement Alembic migrations.
+For migrations, use: make migrate (or alembic upgrade head)
+
+Usage (via Makefile - recommended):
+    make db-list-companies  # List all companies in database
+    make db-info            # Show database info and migration status
+
+Usage (direct):
+    python scripts/db_manager.py list-companies  # List all companies in database
+    python scripts/db_manager.py info            # Show database info and migration status
+
+Note: For migrations, use the Makefile commands:
+    make migrate          # Run migrations
+    make migrate-down     # Rollback migration
+    make migrate-history  # Show migration history
+    make db-reset         # Reset database
 """
 
 import subprocess
@@ -16,7 +27,7 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.db.base import Base, SessionLocal, engine
+from app.db.base import SessionLocal
 from app.db.models.company import Company
 
 
@@ -26,7 +37,8 @@ def run_alembic_command(command: str):
         f"alembic {command}",
         shell=True,
         capture_output=True,
-        text=True
+        text=True,
+        cwd=Path(__file__).resolve().parent.parent
     )
     print(result.stdout)
     if result.stderr:
@@ -34,91 +46,72 @@ def run_alembic_command(command: str):
     return result.returncode
 
 
-def migrate():
-    """Run all pending migrations."""
-    print("Running database migrations...")
-    return run_alembic_command("upgrade head")
-
-
-def reset():
-    """Drop all tables and re-run migrations."""
-    print("Resetting database (this will drop all data)...")
-    response = input("Are you sure? Type 'yes' to continue: ")
-
-    if response.lower() != 'yes':
-        print("Reset cancelled.")
-        return 1
-
-    print("Dropping all tables...")
-    run_alembic_command("downgrade base")
-
-    print("Running migrations...")
-    return run_alembic_command("upgrade head")
-
-
-def status():
-    """Show current migration status."""
-    print("Migration Status:")
-    print("\nCurrent version:")
-    run_alembic_command("current")
-    print("\nMigration history:")
-    return run_alembic_command("history")
-
-
-def seed():
-    """Seed database with additional test data (beyond migration seeds)."""
-    print("Seeding database with test data...")
+def list_companies():
+    """List all companies in the database."""
+    print("Companies in database:")
+    print("-" * 60)
 
     db = SessionLocal()
-
     try:
-        # Check if companies already exist
-        existing = db.query(Company).count()
+        companies = db.query(Company).all()
 
-        if existing > 0:
-            print(f"Database already has {existing} companies.")
-            print("   Companies:")
-            for company in db.query(Company).all():
-                print(f"   - {company.name} ({company.ticker})")
+        if not companies:
+            print("No companies found.")
+            print("\nTo seed companies, run: make migrate")
             return 0
 
-        # Add more test companies if needed
-        print("Companies are seeded via migrations (002_seed_initial_companies.py)")
-        print("   Run 'alembic upgrade head' to seed initial companies.")
+        for company in companies:
+            ticker_display = company.primary_ticker or "No ticker"
+            ticker_count = len(company.tickers) if company.tickers else 0
+            print(f"  {company.name}")
+            print(f"    Primary Ticker: {ticker_display}")
+            if ticker_count > 0:
+                print(f"    Total Tickers: {ticker_count}")
+                if company.tickers:
+                    exchanges = [t.get('exchange', 'N/A') for t in company.tickers]
+                    print(f"    Exchanges: {', '.join(exchanges)}")
+            print(f"    IR URL: {company.ir_url}")
+            print()
 
+        print(f"Total: {len(companies)} companies")
         return 0
 
     except Exception as e:
-        print(f"Error seeding database: {e}")
+        print(f"Error querying database: {e}", file=sys.stderr)
         return 1
     finally:
         db.close()
 
 
-def create_db():
-    """Create database (for development setup)."""
-    print("Creating database tables (without Alembic)...")
-    print("This is for development only. Use migrations in production!")
+def info():
+    """Show database information and migration status."""
+    print("Database Information")
+    print("=" * 60)
 
-    Base.metadata.create_all(bind=engine)
-    print("Tables created successfully.")
+    # Show migration status
+    print("\nMigration Status:")
+    print("-" * 60)
+    print("Current version:")
+    run_alembic_command("current")
+    print("\nMigration history:")
+    run_alembic_command("history")
 
-    # Also seed initial companies
+    # Show company count
+    print("\n" + "=" * 60)
+    print("Database Contents:")
+    print("-" * 60)
+
     db = SessionLocal()
     try:
-        if db.query(Company).count() == 0:
-            companies = [
-                Company(name='Adyen', ticker='ADYEN', ir_url='https://www.adyen.com/investors'),
-                Company(name='Heineken', ticker='HEIA', ir_url='https://www.theheinekencompany.com/investors')
-            ]
-            db.add_all(companies)
-            db.commit()
-            print("Seeded initial companies.")
-        else:
-            print("Companies already exist, skipping seed.")
+        company_count = db.query(Company).count()
+        print(f"Companies: {company_count}")
+    except Exception as e:
+        print(f"Error querying database: {e}", file=sys.stderr)
+        return 1
     finally:
         db.close()
 
+    print("\nFor more details, run: python scripts/db_manager.py list-companies")
     return 0
 
 
@@ -131,11 +124,8 @@ def main():
     command = sys.argv[1].lower()
 
     commands = {
-        'migrate': migrate,
-        'reset': reset,
-        'status': status,
-        'seed': seed,
-        'create': create_db,
+        'list-companies': list_companies,
+        'info': info,
     }
 
     if command not in commands:

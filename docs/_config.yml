@@ -3,7 +3,6 @@ email: patryk@translucentcomputing.com
 description: >-
   Financial Data Extractor is a platform for extracting financial data from company investor relations websites.
 baseurl: "/financial-data-extractor" # Repository name
-#url: "https://translucentcomputing.github.io"
 twitter_username:
 github_username: PatrykQuantumNomad
 logo: "/assets/images/header-logo.png"
