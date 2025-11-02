@@ -2,7 +2,7 @@
 layout: default
 title: Frontend Architecture
 description: Next.js 15 frontend architecture, component structure, and development guide
-nav_order: 5
+nav_order: 9
 ---
 
 # Frontend Architecture
@@ -230,16 +230,17 @@ Next.js 15 uses Server Components with React Suspense for streaming and progress
 // app/companies/[id]/statements/[type]/page.tsx
 export default async function StatementPage({ params }: PageProps) {
   const { id, type } = await params;
-  return (
-    <StatementPageContent companyId={parseInt(id)} statementType={type} />
-  );
+  return <StatementPageContent companyId={parseInt(id)} statementType={type} />;
 }
 
 // components/statements/statement-page-content.tsx
 export function StatementPageContent({ companyId, statementType }) {
   return (
     <Suspense fallback={<StatementPageLoading />}>
-      <StatementDataLoader companyId={companyId} statementType={statementType} />
+      <StatementDataLoader
+        companyId={companyId}
+        statementType={statementType}
+      />
     </Suspense>
   );
 }
@@ -265,10 +266,10 @@ import { useCompanies } from "@/lib/hooks";
 
 export function CompanyList() {
   const { data: companies, isLoading, error } = useCompanies();
-  
+
   if (isLoading) return <LoadingSkeleton />;
   if (error) return <ErrorDisplay error={error} />;
-  
+
   return <CompanyGrid companies={companies} />;
 }
 ```
@@ -415,16 +416,19 @@ React Query provides powerful data fetching, caching, and synchronization capabi
 ```typescript
 // lib/providers/query-provider.tsx
 export function QueryProvider({ children }) {
-  const [queryClient] = useState(() => new QueryClient({
-    defaultOptions: {
-      queries: {
-        staleTime: 60 * 1000,      // Data fresh for 1 minute
-        gcTime: 5 * 60 * 1000,    // Cache kept for 5 minutes
-        refetchOnWindowFocus: false,
-        retry: 1,
-      },
-    },
-  }));
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 60 * 1000, // Data fresh for 1 minute
+            gcTime: 5 * 60 * 1000, // Cache kept for 5 minutes
+            refetchOnWindowFocus: false,
+            retry: 1,
+          },
+        },
+      })
+  );
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -483,7 +487,9 @@ The API client uses Axios with interceptors for consistent error handling:
 ```typescript
 // lib/api/client.ts
 export const apiClient: AxiosInstance = axios.create({
-  baseURL: `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3030"}/api/v1`,
+  baseURL: `${
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3030"
+  }/api/v1`,
   headers: { "Content-Type": "application/json" },
 });
 
@@ -573,6 +579,51 @@ const buttonVariants = cva(
 - Easy customization
 - Type-safe variants with CVA
 - Consistent with Tailwind utilities
+
+## Testing
+
+The frontend uses **Vitest** and **React Testing Library** for comprehensive unit testing.
+
+### Testing Framework
+
+- **Vitest** - Fast, Vite-native test runner
+- **React Testing Library** - Component testing utilities
+- **jsdom** - DOM environment for tests
+- **Coverage**: 100% coverage for UI components
+
+### Test Organization
+
+Tests are located in `tests/` directory, mirroring `src/` structure:
+
+```
+tests/
+├── components/
+│   ├── ui/        # UI component tests
+│   └── layout/    # Layout component tests
+├── vitest.config.mjs
+└── vitest.setup.ts
+```
+
+### Running Tests
+
+```bash
+# Run tests in watch mode
+npm test
+
+# Generate coverage report
+npm run test:coverage
+
+# Interactive test UI
+npm run test:ui
+```
+
+### Current Coverage
+
+- **UI Components**: Button, Badge, Card, Table, Tabs (100%)
+- **Layout Components**: Navbar (100%)
+- **Total**: 65 tests, all passing
+
+For detailed testing documentation, see **[Frontend Testing](frontend-testing)**.
 
 ## Error Handling
 

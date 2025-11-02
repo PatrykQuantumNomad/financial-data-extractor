@@ -2,7 +2,7 @@
 layout: default
 title: Database Migrations
 description: Alembic migration commands, workflow, and best practices for database schema changes
-nav_order: 4
+nav_order: 5
 ---
 
 # Database Migrations

@@ -293,8 +293,10 @@ This documentation site provides comprehensive guides for:
 ### Development
 
 - **Backend Development** - FastAPI setup, database models, API endpoints
+- **[Backend Testing](backend-testing)** - pytest setup, unit tests, fixtures, and coverage
 - **[Frontend Architecture](frontend-architecture)** - Next.js 15 architecture, React Query, components, and development guide
 - **[Frontend DevTools](frontend-devtools)** - React Query DevTools, ESLint plugin, and frontend debugging tools
+- **[Frontend Testing](frontend-testing)** - Vitest unit testing, React Testing Library, and testing strategies
 
 ### Processing & Data
 
@@ -304,7 +306,7 @@ This documentation site provides comprehensive guides for:
 ### Operations
 
 - **Infrastructure** - Docker, deployment, monitoring
-- **Testing** - Unit, integration, and end-to-end testing strategies
+- **[Testing Overview](testing)** - Overview of testing strategies for backend and frontend
 
 ## License
 

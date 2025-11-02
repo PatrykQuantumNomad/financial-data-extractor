@@ -2,7 +2,7 @@
 layout: default
 title: Frontend DevTools
 description: React Query DevTools, ESLint plugin, and frontend development debugging tools configuration
-nav_order: 6
+nav_order: 10
 ---
 
 # Frontend DevTools

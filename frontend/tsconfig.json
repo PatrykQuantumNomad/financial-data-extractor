@@ -37,8 +37,7 @@
     "paths": {
       "@/*": ["./src/*"],
       "@/lib/*": ["./src/lib/*"],
-      "@/types/*": ["./src/types/*"],
-      "@/tests/*": ["./src/__tests__/*"]
+      "@/types/*": ["./src/types/*"]
     },
     "incremental": true,
     /* ------------------- Types ------------------- */
@@ -53,7 +52,8 @@
     ".next/types/**/*.ts",
     "prettier.config.mjs",
     "eslint.config.mjs",
-    "vitest.config.ts"
+    "tests/**/*.ts",
+    "tests/**/*.tsx"
   ],
   "exclude": ["node_modules", ".next", "dist", "build"]
 }

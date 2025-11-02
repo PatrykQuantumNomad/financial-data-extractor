@@ -2,7 +2,7 @@
 layout: default
 title: Database Queries
 description: Useful SQL queries for inspecting and querying financial data
-nav_order: 5
+nav_order: 7
 ---
 
 # Database Queries

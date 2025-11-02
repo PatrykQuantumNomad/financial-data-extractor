@@ -2,7 +2,7 @@
 layout: default
 title: Infrastructure Development Setup
 description: Docker Compose setup, infrastructure services, and development environment configuration
-nav_order: 3
+nav_order: 4
 ---
 
 # Infrastructure Development Setup

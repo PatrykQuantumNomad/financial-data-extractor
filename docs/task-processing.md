@@ -2,7 +2,7 @@
 layout: default
 title: Task Processing with Celery
 description: Complete guide to long-running task processing, Celery workers, and Flower monitoring
-nav_order: 4
+nav_order: 6
 ---
 
 # Task Processing with Celery
@@ -29,7 +29,7 @@ graph LR
     D -->|Store Results| E[Redis Backend]
     D -->|Update DB| F[PostgreSQL]
     C -->|Status Updates| G[Flower Dashboard]
-    
+
     style A fill:#e1f5ff
     style B fill:#fff3e0
     style C fill:#f3e5f5
@@ -43,22 +43,24 @@ graph LR
 
 Tasks are organized into dedicated queues for better resource management:
 
-| Queue | Purpose | Typical Duration | Concurrency |
-|-------|---------|------------------|-------------|
-| `scraping` | Web scraping and URL discovery | Seconds to 1 minute | High (5-10) |
-| `extraction` | LLM-powered financial extraction | 2-5 minutes | Low (1-2) |
-| `compilation` | Normalization and compilation | 30s - 2 minutes | Medium (2-3) |
-| `orchestration` | End-to-end workflows | 10 minutes - 2 hours | Low (1) |
-| `default` | General tasks | Varies | Medium (2-3) |
+| Queue           | Purpose                          | Typical Duration     | Concurrency  |
+| --------------- | -------------------------------- | -------------------- | ------------ |
+| `scraping`      | Web scraping and URL discovery   | Seconds to 1 minute  | High (5-10)  |
+| `extraction`    | LLM-powered financial extraction | 2-5 minutes          | Low (1-2)    |
+| `compilation`   | Normalization and compilation    | 30s - 2 minutes      | Medium (2-3) |
+| `orchestration` | End-to-end workflows             | 10 minutes - 2 hours | Low (1)      |
+| `default`       | General tasks                    | Varies               | Medium (2-3) |
 
 ## Available Tasks
 
 ### Company-Level Tasks
 
 #### `extract_company_financial_data`
+
 **Complete end-to-end extraction workflow for a company.**
 
 Triggers the full pipeline:
+
 1. Scrapes investor relations website
 2. Discovers and classifies documents
 3. Downloads PDFs
@@ -66,16 +68,19 @@ Triggers the full pipeline:
 5. Normalizes and compiles statements
 
 **API Endpoint:**
+
 ```http
 POST /api/v1/tasks/companies/{company_id}/extract
 ```
 
 **Example:**
+
 ```bash
 curl -X POST http://localhost:3000/api/v1/tasks/companies/1/extract
 ```
 
 **Response:**
+
 ```json
 {
   "task_id": "a00d8c65-c7fd-4360-8f4c-836b0df25f59",
@@ -89,9 +94,11 @@ curl -X POST http://localhost:3000/api/v1/tasks/companies/1/extract
 ---
 
 #### `scrape_investor_relations`
+
 **Scrape investor relations website to discover PDF documents.**
 
 **API Endpoint:**
+
 ```http
 POST /api/v1/tasks/companies/{company_id}/scrape
 ```
@@ -103,11 +110,13 @@ POST /api/v1/tasks/companies/{company_id}/scrape
 ---
 
 #### `recompile_company_statements`
+
 **Recompile all financial statements after new extractions.**
 
 Useful when new documents are processed and statements need updating.
 
 **API Endpoint:**
+
 ```http
 POST /api/v1/tasks/companies/{company_id}/recompile
 ```
@@ -119,14 +128,17 @@ POST /api/v1/tasks/companies/{company_id}/recompile
 ### Document-Level Tasks
 
 #### `process_document`
+
 **Process a document end-to-end: classify, download, and extract.**
 
 Convenience task that orchestrates:
+
 1. Document classification
 2. PDF download (if needed)
 3. Financial statement extraction (for annual reports)
 
 **API Endpoint:**
+
 ```http
 POST /api/v1/tasks/documents/{document_id}/process
 ```
@@ -136,9 +148,11 @@ POST /api/v1/tasks/documents/{document_id}/process
 ---
 
 #### `download_pdf`
+
 **Download PDF document from URL and store locally.**
 
 **API Endpoint:**
+
 ```http
 POST /api/v1/tasks/documents/{document_id}/download
 ```
@@ -150,11 +164,13 @@ POST /api/v1/tasks/documents/{document_id}/download
 ---
 
 #### `classify_document`
+
 **Classify document by type (annual_report, quarterly_report, etc.).**
 
 Uses filename patterns, URL patterns, and content analysis.
 
 **API Endpoint:**
+
 ```http
 POST /api/v1/tasks/documents/{document_id}/classify
 ```
@@ -164,11 +180,13 @@ POST /api/v1/tasks/documents/{document_id}/classify
 ---
 
 #### `extract_financial_statements`
+
 **Extract financial statements from PDF using LLM.**
 
 Extracts Income Statement, Balance Sheet, and Cash Flow Statement.
 
 **API Endpoint:**
+
 ```http
 POST /api/v1/tasks/documents/{document_id}/extract
 ```
@@ -182,14 +200,17 @@ POST /api/v1/tasks/documents/{document_id}/extract
 ### Task Status
 
 #### `get_task_status`
+
 **Check the current status and result of a Celery task.**
 
 **API Endpoint:**
+
 ```http
 GET /api/v1/tasks/{task_id}
 ```
 
 **Response:**
+
 ```json
 {
   "task_id": "a00d8c65-c7fd-4360-8f4c-836b0df25f59",
@@ -206,6 +227,7 @@ GET /api/v1/tasks/{task_id}
 ```
 
 **Status Values:**
+
 - `PENDING` - Task is waiting to be processed
 - `STARTED` - Task has started execution
 - `PROGRESS` - Task is in progress (check `meta` for details)
@@ -233,6 +255,7 @@ celery -A app.tasks.celery_app worker \
 ### Worker Configuration
 
 Workers are configured with:
+
 - **Prefetch multiplier:** 1 (better load balancing)
 - **Max tasks per child:** 1000 (prevents memory leaks)
 - **Late acknowledgment:** Tasks acknowledged after completion
@@ -242,12 +265,14 @@ Workers are configured with:
 ### Worker Logs
 
 Worker logs include:
+
 - Task start/completion
 - Progress updates (via `update_state()`)
 - Errors and retry attempts
 - Performance metrics
 
 **Log Format:**
+
 ```
 2025-01-15 10:30:45 [INFO] app.tasks.scraping_tasks: Starting scrape_investor_relations task
 2025-01-15 10:30:45 [INFO] app.tasks.scraping_tasks: Scraping IR website: https://...
@@ -270,6 +295,7 @@ make celery-flower
 ### Flower Features
 
 #### Workers Tab
+
 - View all active workers
 - Monitor worker status (online/offline)
 - Track worker metrics:
@@ -279,6 +305,7 @@ make celery-flower
   - Worker uptime
 
 #### Tasks Tab
+
 - View all tasks across states:
   - **Active** - Currently executing
   - **Scheduled** - Waiting to start
@@ -296,12 +323,14 @@ make celery-flower
   - Worker assignment
 
 #### Task Actions
+
 - **Retry** - Retry failed tasks
 - **Revoke** - Cancel pending/running tasks
 - **Terminate** - Force terminate running tasks
 - **View Traceback** - See full error details
 
 #### Broker Tab
+
 - Monitor Redis broker status
 - View queue depths
 - Check message rates
@@ -309,6 +338,7 @@ make celery-flower
 ### Persistent Task History
 
 Flower runs with `--persistent=True` to maintain task history in a local SQLite database. This allows you to:
+
 - View completed tasks even after they're removed from Redis
 - Track task history over time
 - Analyze task performance
@@ -322,13 +352,15 @@ Flower runs with `--persistent=True` to maintain task history in a local SQLite 
 ### Step-by-Step: Extracting Financial Data for a Company
 
 1. **Trigger Extraction**
+
    ```bash
    curl -X POST http://localhost:3000/api/v1/tasks/companies/1/extract
    ```
-   
+
    Returns: `task_id`
 
 2. **Monitor in Flower**
+
    - Open http://localhost:3000:5555
    - Navigate to "Tasks" tab
    - Search for your `task_id`
@@ -336,6 +368,7 @@ Flower runs with `--persistent=True` to maintain task history in a local SQLite 
      - `PENDING` → `STARTED` → `PROGRESS` → `SUCCESS`
 
 3. **Check Status via API**
+
    ```bash
    curl http://localhost:3000/api/v1/tasks/{task_id}
    ```
@@ -357,6 +390,7 @@ self.update_state(
 ```
 
 **Progress States:**
+
 - `fetching_company_info` - Retrieving company data
 - `scraping_website` - Discovering PDFs
 - `creating_document_records` - Creating database entries
@@ -398,11 +432,13 @@ Tasks automatically retry on specified exceptions without manual intervention.
 ### Handling Persistent Failures
 
 **403 Forbidden (Website Blocking):**
+
 - Tasks handle 403 gracefully
 - Return "partial" status with empty results
 - Do not retry (retrying won't help)
 
 **Other Failures:**
+
 - Tasks retry up to `max_retries` times
 - After final failure, task marked as `FAILURE`
 - Full traceback available in Flower and logs
@@ -450,12 +486,12 @@ See [Testing Tasks](#testing-tasks) section for full details.
 
 ### Task Limits
 
-| Task Type | Soft Limit | Hard Limit | Max Retries |
-|-----------|-----------|------------|-------------|
-| Scraping | 5 minutes | 10 minutes | 3 |
-| Extraction | 27.5 minutes | 30 minutes | 3 |
-| Compilation | 27.5 minutes | 30 minutes | 2 |
-| Orchestration | 1h 55min | 2 hours | 2 |
+| Task Type     | Soft Limit   | Hard Limit | Max Retries |
+| ------------- | ------------ | ---------- | ----------- |
+| Scraping      | 5 minutes    | 10 minutes | 3           |
+| Extraction    | 27.5 minutes | 30 minutes | 3           |
+| Compilation   | 27.5 minutes | 30 minutes | 2           |
+| Orchestration | 1h 55min     | 2 hours    | 2           |
 
 ### Result Expiration
 
@@ -508,6 +544,7 @@ See [Testing Tasks](#testing-tasks) section for full details.
 ### Tasks Not Appearing in Flower
 
 **Solution:**
+
 - Ensure worker is listening to correct queues
 - Restart Flower with `--persistent=True`
 - Check Redis connection
@@ -515,11 +552,13 @@ See [Testing Tasks](#testing-tasks) section for full details.
 ### Tasks Stuck in PENDING
 
 **Possible Causes:**
+
 - No worker listening to task's queue
 - Worker crashed or offline
 - Redis connection issues
 
 **Solution:**
+
 - Verify worker is running: `make celery-worker`
 - Check worker logs for errors
 - Verify Redis is accessible
@@ -527,6 +566,7 @@ See [Testing Tasks](#testing-tasks) section for full details.
 ### High Task Failure Rate
 
 **Check:**
+
 - Worker logs for error patterns
 - External service status (OpenAI API, websites)
 - Database connection pool health
@@ -535,6 +575,7 @@ See [Testing Tasks](#testing-tasks) section for full details.
 ### Slow Task Execution
 
 **Optimize:**
+
 - Increase worker concurrency
 - Add more workers
 - Optimize database queries
