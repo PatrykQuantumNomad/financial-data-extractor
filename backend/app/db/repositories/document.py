@@ -5,10 +5,9 @@ Author: Patryk Golabek
 Copyright: 2025 Patryk Golabek
 """
 
-from typing import Any
+from sqlalchemy import select
 
-from psycopg_pool import AsyncConnectionPool
-
+from app.db.models.document import Document
 from app.db.repositories.base import BaseRepository
 
 
@@ -22,7 +21,7 @@ class DocumentRepository(BaseRepository):
         fiscal_year: int,
         document_type: str,
         file_path: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> Document:
         """Create a new document.
 
         Args:
@@ -33,40 +32,37 @@ class DocumentRepository(BaseRepository):
             file_path: Local file path if downloaded (optional).
 
         Returns:
-            Dictionary representing the created document.
+            Document model instance.
         """
-        query = """
-            INSERT INTO documents (company_id, url, fiscal_year, document_type, file_path)
-            VALUES (%(company_id)s, %(url)s, %(fiscal_year)s, %(document_type)s, %(file_path)s)
-            RETURNING *
-        """
-        params = {
-            "company_id": company_id,
-            "url": url,
-            "fiscal_year": fiscal_year,
-            "document_type": document_type,
-            "file_path": file_path,
-        }
-        return await self.execute_one(query, params)  # type: ignore
+        document = Document(
+            company_id=company_id,
+            url=url,
+            fiscal_year=fiscal_year,
+            document_type=document_type,
+            file_path=file_path,
+        )
+        self.session.add(document)
+        await self.session.flush()
+        await self.session.refresh(document)
+        return document
 
-    async def get_by_id(self, document_id: int) -> dict[str, Any] | None:
+    async def get_by_id(self, document_id: int) -> Document | None:
         """Get document by ID.
 
         Args:
             document_id: Document ID.
 
         Returns:
-            Dictionary representing the document, or None if not found.
+            Document model instance, or None if not found.
         """
-        query = "SELECT * FROM documents WHERE id = %(id)s"
-        return await self.execute_one(query, {"id": document_id})
+        return await self.session.get(Document, document_id)
 
     async def get_by_company(
         self,
         company_id: int,
         skip: int = 0,
         limit: int = 100,
-    ) -> list[dict[str, Any]]:
+    ) -> list[Document]:
         """Get all documents for a company with pagination.
 
         Args:
@@ -75,21 +71,19 @@ class DocumentRepository(BaseRepository):
             limit: Maximum number of records to return.
 
         Returns:
-            List of dictionaries representing documents.
+            List of Document model instances.
         """
-        query = """
-            SELECT * FROM documents
-            WHERE company_id = %(company_id)s
-            ORDER BY fiscal_year DESC, created_at DESC
-            LIMIT %(limit)s OFFSET %(skip)s
-        """
-        return await self.execute_query(
-            query, {"company_id": company_id, "limit": limit, "skip": skip}
+        stmt = (
+            select(Document)
+            .where(Document.company_id == company_id)
+            .order_by(Document.fiscal_year.desc(), Document.created_at.desc())
+            .offset(skip)
+            .limit(limit)
         )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
-    async def get_by_company_and_year(
-        self, company_id: int, fiscal_year: int
-    ) -> list[dict[str, Any]]:
+    async def get_by_company_and_year(self, company_id: int, fiscal_year: int) -> list[Document]:
         """Get documents for a company by fiscal year.
 
         Args:
@@ -97,16 +91,15 @@ class DocumentRepository(BaseRepository):
             fiscal_year: Fiscal year.
 
         Returns:
-            List of dictionaries representing documents.
+            List of Document model instances.
         """
-        query = """
-            SELECT * FROM documents
-            WHERE company_id = %(company_id)s AND fiscal_year = %(fiscal_year)s
-            ORDER BY created_at DESC
-        """
-        return await self.execute_query(
-            query, {"company_id": company_id, "fiscal_year": fiscal_year}
+        stmt = (
+            select(Document)
+            .where(Document.company_id == company_id, Document.fiscal_year == fiscal_year)
+            .order_by(Document.created_at.desc())
         )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def get_by_company_and_type(
         self,
@@ -114,7 +107,7 @@ class DocumentRepository(BaseRepository):
         document_type: str,
         skip: int = 0,
         limit: int = 100,
-    ) -> list[dict[str, Any]]:
+    ) -> list[Document]:
         """Get documents for a company by document type.
 
         Args:
@@ -124,23 +117,20 @@ class DocumentRepository(BaseRepository):
             limit: Maximum number of records to return.
 
         Returns:
-            List of dictionaries representing documents.
+            List of Document model instances.
         """
-        query = """
-            SELECT * FROM documents
-            WHERE company_id = %(company_id)s AND document_type = %(document_type)s
-            ORDER BY fiscal_year DESC, created_at DESC
-            LIMIT %(limit)s OFFSET %(skip)s
-        """
-        return await self.execute_query(
-            query,
-            {
-                "company_id": company_id,
-                "document_type": document_type,
-                "limit": limit,
-                "skip": skip,
-            },
+        stmt = (
+            select(Document)
+            .where(
+                Document.company_id == company_id,
+                Document.document_type == document_type,
+            )
+            .order_by(Document.fiscal_year.desc(), Document.created_at.desc())
+            .offset(skip)
+            .limit(limit)
         )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def update(
         self,
@@ -149,7 +139,7 @@ class DocumentRepository(BaseRepository):
         fiscal_year: int | None = None,
         document_type: str | None = None,
         file_path: str | None = None,
-    ) -> dict[str, Any] | None:
+    ) -> Document | None:
         """Update a document.
 
         Args:
@@ -160,37 +150,24 @@ class DocumentRepository(BaseRepository):
             file_path: Local file path if downloaded (optional).
 
         Returns:
-            Dictionary representing the updated document, or None if not found.
+            Document model instance, or None if not found.
         """
-        updates = []
-        params: dict[str, Any] = {"id": document_id}
+        document = await self.session.get(Document, document_id)
+        if document is None:
+            return None
 
         if url is not None:
-            updates.append("url = %(url)s")
-            params["url"] = url
-
+            document.url = url
         if fiscal_year is not None:
-            updates.append("fiscal_year = %(fiscal_year)s")
-            params["fiscal_year"] = fiscal_year
-
+            document.fiscal_year = fiscal_year
         if document_type is not None:
-            updates.append("document_type = %(document_type)s")
-            params["document_type"] = document_type
-
+            document.document_type = document_type
         if file_path is not None:
-            updates.append("file_path = %(file_path)s")
-            params["file_path"] = file_path
+            document.file_path = file_path
 
-        if not updates:
-            return await self.get_by_id(document_id)
-
-        query = f"""
-            UPDATE documents
-            SET {', '.join(updates)}
-            WHERE id = %(id)s
-            RETURNING *
-        """
-        return await self.execute_one(query, params)  # type: ignore
+        await self.session.flush()
+        await self.session.refresh(document)
+        return document
 
     async def delete(self, document_id: int) -> bool:
         """Delete a document by ID.
@@ -201,6 +178,10 @@ class DocumentRepository(BaseRepository):
         Returns:
             True if document was deleted, False otherwise.
         """
-        query = "DELETE FROM documents WHERE id = %(id)s"
-        rows_affected = await self.execute_delete(query, {"id": document_id})
-        return rows_affected > 0
+        document = await self.session.get(Document, document_id)
+        if document is None:
+            return False
+
+        await self.session.delete(document)
+        await self.session.flush()
+        return True

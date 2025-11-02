@@ -10,7 +10,8 @@ Copyright: 2025 Patryk Golabek
 
 import asyncio
 import uuid
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -49,7 +50,7 @@ class TimeoutMiddleware(BaseHTTPMiddleware):
         """
         try:
             return await asyncio.wait_for(call_next(request), timeout=self.timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return JSONResponse({"detail": "Request timed out"}, status_code=504)
 
 

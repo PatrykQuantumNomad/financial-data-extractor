@@ -7,14 +7,15 @@ Copyright: 2025 Patryk Golabek
 
 from typing import Annotated
 
-from app.tasks.extraction_tasks import (extract_financial_statements,
-                                        process_document)
-from app.tasks.orchestration_tasks import (extract_company_financial_data,
-                                           recompile_company_statements)
-from app.tasks.scraping_tasks import (classify_document, download_pdf,
-                                      scrape_investor_relations)
-from fastapi import APIRouter, Depends, HTTPException, Path, status
+from fastapi import APIRouter, HTTPException, Path, status
 from pydantic import BaseModel, Field
+
+from app.tasks.extraction_tasks import extract_financial_statements, process_document
+from app.tasks.orchestration_tasks import (
+    extract_company_financial_data,
+    recompile_company_statements,
+)
+from app.tasks.scraping_tasks import classify_document, download_pdf, scrape_investor_relations
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
 

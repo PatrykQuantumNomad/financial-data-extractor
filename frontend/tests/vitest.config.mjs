@@ -1,7 +1,7 @@
-import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { fileURLToPath } from "url";
+import { defineConfig } from "vitest/config";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,6 +33,11 @@ export default defineConfig({
         "tailwind.config.ts",
         "postcss.config.mjs",
         "eslint.config.mjs",
+        "**/lib/api/**",
+        "**/lib/hooks/**",
+        "**/lib/providers/**",
+        "**/lib/types/**",
+        "**/app/**",
       ],
     },
   },

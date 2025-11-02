@@ -69,18 +69,17 @@ class TestExtractionsEndpoints:
         assert data["id"] == 1
         mock_extraction_service.get_extraction.assert_called_once_with(1)
 
-    def test_get_extraction_by_id_not_found(
-        self, test_client: TestClient, mock_extraction_service
-    ):
+    def test_get_extraction_by_id_not_found(self, test_client: TestClient, mock_extraction_service):
         """Test retrieval of non-existent extraction."""
         # Arrange
-        from app.core.exceptions.custom_exceptions import JSONFileNotFoundError
+        from app.core.exceptions.api_exceptions import JSONFileNotFoundError
+
         mock_extraction_service.get_extraction.side_effect = JSONFileNotFoundError(
             filename="extraction_999.json"
         )
 
         # Act
-        response = test_client.get("/extractions/999")
+        test_client.get("/extractions/999")
 
         # Assert
         mock_extraction_service.get_extraction.assert_called_once_with(999)
@@ -90,9 +89,7 @@ class TestExtractionsEndpoints:
     ):
         """Test successful listing of extractions by document."""
         # Arrange
-        mock_extraction_service.get_extractions_by_document.return_value = [
-            sample_extraction_data
-        ]
+        mock_extraction_service.get_extractions_by_document.return_value = [sample_extraction_data]
 
         # Act
         response = test_client.get("/extractions/documents/1")
@@ -144,13 +141,14 @@ class TestExtractionsEndpoints:
     ):
         """Test retrieval with non-existent document and type."""
         # Arrange
-        from app.core.exceptions.custom_exceptions import JSONFileNotFoundError
+        from app.core.exceptions.api_exceptions import JSONFileNotFoundError
+
         mock_extraction_service.get_extraction_by_document_and_type.side_effect = (
             JSONFileNotFoundError(filename="extraction_not_found.json")
         )
 
         # Act
-        response = test_client.get("/extractions/documents/999/statement-type/Cash%20Flow")
+        test_client.get("/extractions/documents/999/statement-type/Cash%20Flow")
 
         # Assert
         mock_extraction_service.get_extraction_by_document_and_type.assert_called_once_with(
@@ -191,9 +189,7 @@ class TestExtractionsEndpoints:
         assert response.status_code == status.HTTP_200_OK
         mock_extraction_service.update_extraction.assert_called_once()
 
-    def test_delete_extraction_success(
-        self, test_client: TestClient, mock_extraction_service
-    ):
+    def test_delete_extraction_success(self, test_client: TestClient, mock_extraction_service):
         """Test successful extraction deletion."""
         # Arrange
         mock_extraction_service.delete_extraction.return_value = None
@@ -205,18 +201,17 @@ class TestExtractionsEndpoints:
         assert response.status_code == status.HTTP_204_NO_CONTENT
         mock_extraction_service.delete_extraction.assert_called_once_with(1)
 
-    def test_delete_extraction_not_found(
-        self, test_client: TestClient, mock_extraction_service
-    ):
+    def test_delete_extraction_not_found(self, test_client: TestClient, mock_extraction_service):
         """Test deletion of non-existent extraction."""
         # Arrange
-        from app.core.exceptions.custom_exceptions import JSONFileNotFoundError
+        from app.core.exceptions.api_exceptions import JSONFileNotFoundError
+
         mock_extraction_service.delete_extraction.side_effect = JSONFileNotFoundError(
             filename="extraction_999.json"
         )
 
         # Act
-        response = test_client.delete("/extractions/999")
+        test_client.delete("/extractions/999")
 
         # Assert
         mock_extraction_service.delete_extraction.assert_called_once_with(999)

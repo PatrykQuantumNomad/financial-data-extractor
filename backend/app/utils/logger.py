@@ -11,7 +11,7 @@ Copyright: 2025 Patryk Golabek
 import logging
 import sys
 import traceback
-from typing import Any, Optional
+from typing import Any
 
 from tenacity import Future, RetryCallState
 
@@ -168,7 +168,7 @@ class AppLogger:
         # Ensure outcome is not None and has an exception
         if outcome and outcome.exception():
             # Extracting the exception (if any) from the outcome
-            exception: Optional[BaseException] = outcome.exception()  # type: ignore
+            exception: BaseException | None = outcome.exception()  # type: ignore
 
             # Ensure we have a traceback before appending it to the message
             if exception:

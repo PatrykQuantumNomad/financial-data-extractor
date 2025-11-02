@@ -24,7 +24,9 @@ class Document(Base):
     __tablename__ = "documents"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id: Mapped[int] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     url: Mapped[str] = mapped_column(String, nullable=False)
     fiscal_year: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     document_type: Mapped[str] = mapped_column(String(length=50), nullable=False)
@@ -35,7 +37,9 @@ class Document(Base):
 
     # Relationships
     company: Mapped["Company"] = relationship("Company", back_populates="documents")
-    extractions: Mapped[list["Extraction"]] = relationship("Extraction", back_populates="document", cascade="all, delete-orphan")
+    extractions: Mapped[list["Extraction"]] = relationship(
+        "Extraction", back_populates="document", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         """String representation of Document."""

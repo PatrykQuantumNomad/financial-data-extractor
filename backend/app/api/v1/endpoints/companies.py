@@ -7,11 +7,14 @@ Copyright: 2025 Patryk Golabek
 
 from typing import Annotated
 
+from fastapi import APIRouter, Depends, Path, Query, status
+from fastapi.responses import JSONResponse
+
+from app.core.exceptions.service_exceptions import BaseServiceError
+from app.core.exceptions.translators import translate_service_exception_to_api
 from app.schemas.company import CompanyCreate, CompanyResponse, CompanyUpdate
 from app.services.company import CompanyService
 from app.services.dependencies import get_company_service
-from fastapi import APIRouter, Depends, Path, Query, status
-from fastapi.responses import JSONResponse
 
 router = APIRouter(prefix="/companies", tags=["Companies"])
 
@@ -35,9 +38,16 @@ async def create_company(
 
     Returns:
         Created company data.
+
+    Raises:
+        BadRequestError: If validation fails.
+        InternalServerError: If service operation fails.
     """
-    company = await company_service.create_company(company_data)
-    return CompanyResponse(**company)
+    try:
+        company = await company_service.create_company(company_data)
+        return CompanyResponse.model_validate(company)
+    except BaseServiceError as e:
+        translate_service_exception_to_api(e)
 
 
 @router.get(
@@ -64,7 +74,7 @@ async def list_companies(
         List of companies.
     """
     companies = await company_service.get_all_companies(skip=skip, limit=limit)
-    return [CompanyResponse(**company) for company in companies]
+    return [CompanyResponse.model_validate(company) for company in companies]
 
 
 @router.get(
@@ -85,9 +95,16 @@ async def get_company(
 
     Returns:
         Company data.
+
+    Raises:
+        NotFoundError: If company not found.
+        InternalServerError: If service operation fails.
     """
-    company = await company_service.get_company(company_id)
-    return CompanyResponse(**company)
+    try:
+        company = await company_service.get_company(company_id)
+        return CompanyResponse.model_validate(company)
+    except BaseServiceError as e:
+        translate_service_exception_to_api(e)
 
 
 @router.get(
@@ -108,9 +125,16 @@ async def get_company_by_ticker(
 
     Returns:
         Company data.
+
+    Raises:
+        NotFoundError: If company not found.
+        InternalServerError: If service operation fails.
     """
-    company = await company_service.get_company_by_ticker(ticker)
-    return CompanyResponse(**company)
+    try:
+        company = await company_service.get_company_by_ticker(ticker)
+        return CompanyResponse.model_validate(company)
+    except BaseServiceError as e:
+        translate_service_exception_to_api(e)
 
 
 @router.put(
@@ -133,9 +157,17 @@ async def update_company(
 
     Returns:
         Updated company data.
+
+    Raises:
+        NotFoundError: If company not found.
+        BadRequestError: If validation fails.
+        InternalServerError: If service operation fails.
     """
-    company = await company_service.update_company(company_id, company_data)
-    return CompanyResponse(**company)
+    try:
+        company = await company_service.update_company(company_id, company_data)
+        return CompanyResponse.model_validate(company)
+    except BaseServiceError as e:
+        translate_service_exception_to_api(e)
 
 
 @router.delete(
@@ -156,6 +188,13 @@ async def delete_company(
 
     Returns:
         Empty response with 204 status code.
+
+    Raises:
+        NotFoundError: If company not found.
+        InternalServerError: If deletion fails.
     """
-    await company_service.delete_company(company_id)
-    return JSONResponse(content=None, status_code=status.HTTP_204_NO_CONTENT)
+    try:
+        await company_service.delete_company(company_id)
+        return JSONResponse(content=None, status_code=status.HTTP_204_NO_CONTENT)
+    except BaseServiceError as e:
+        translate_service_exception_to_api(e)

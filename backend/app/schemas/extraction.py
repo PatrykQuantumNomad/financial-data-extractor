@@ -31,9 +31,7 @@ class ExtractionCreate(ExtractionBase):
 class ExtractionUpdate(BaseModel):
     """Schema for updating an extraction."""
 
-    raw_data: dict[str, Any] | None = Field(
-        None, description="Raw extracted data as dictionary"
-    )
+    raw_data: dict[str, Any] | None = Field(None, description="Raw extracted data as dictionary")
 
 
 class ExtractionResponse(ExtractionBase):
@@ -49,9 +47,7 @@ class ExtractionResponse(ExtractionBase):
 class CompiledStatementBase(BaseModel):
     """Base schema for CompiledStatement with common fields."""
 
-    company_id: int = Field(
-        ..., description="ID of the company this compiled statement belongs to"
-    )
+    company_id: int = Field(..., description="ID of the company this compiled statement belongs to")
     statement_type: str = Field(
         ..., description="Type of financial statement", max_length=50, min_length=1
     )
@@ -67,9 +63,7 @@ class CompiledStatementCreate(CompiledStatementBase):
 class CompiledStatementUpdate(BaseModel):
     """Schema for updating a compiled statement."""
 
-    data: dict[str, Any] | None = Field(
-        None, description="Compiled financial data as dictionary"
-    )
+    data: dict[str, Any] | None = Field(None, description="Compiled financial data as dictionary")
 
 
 class CompiledStatementResponse(CompiledStatementBase):

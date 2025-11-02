@@ -7,17 +7,18 @@ Copyright: 2025 Patryk Golabek
 
 from typing import Annotated
 
-from app.schemas.extraction import (CompiledStatementCreate,
-                                    CompiledStatementResponse,
-                                    CompiledStatementUpdate)
-from app.services.compiled_statement import CompiledStatementService
-from app.services.dependencies import get_compiled_statement_service
 from fastapi import APIRouter, Depends, Path, status
 from fastapi.responses import JSONResponse
 
-router = APIRouter(
-    prefix="/compiled-statements", tags=["Compiled Statements"]
+from app.schemas.extraction import (
+    CompiledStatementCreate,
+    CompiledStatementResponse,
+    CompiledStatementUpdate,
 )
+from app.services.compiled_statement import CompiledStatementService
+from app.services.dependencies import get_compiled_statement_service
+
+router = APIRouter(prefix="/compiled-statements", tags=["Compiled Statements"])
 
 
 @router.post(
@@ -42,12 +43,10 @@ async def create_or_update_compiled_statement(
     Returns:
         Compiled statement data.
     """
-    compiled_statement = (
-        await compiled_statement_service.upsert_compiled_statement(
-            compiled_statement_data
-        )
+    compiled_statement = await compiled_statement_service.upsert_compiled_statement(
+        compiled_statement_data
     )
-    return CompiledStatementResponse(**compiled_statement)
+    return compiled_statement
 
 
 @router.get(
@@ -57,9 +56,7 @@ async def create_or_update_compiled_statement(
     description="Get a specific compiled statement by its ID.",
 )
 async def get_compiled_statement(
-    compiled_statement_id: Annotated[
-        int, Path(description="Compiled statement ID")
-    ],
+    compiled_statement_id: Annotated[int, Path(description="Compiled statement ID")],
     compiled_statement_service: Annotated[
         CompiledStatementService, Depends(get_compiled_statement_service)
     ],
@@ -76,7 +73,7 @@ async def get_compiled_statement(
     compiled_statement = await compiled_statement_service.get_compiled_statement(
         compiled_statement_id
     )
-    return CompiledStatementResponse(**compiled_statement)
+    return compiled_statement
 
 
 @router.get(
@@ -100,14 +97,10 @@ async def list_compiled_statements_by_company(
     Returns:
         List of compiled statements.
     """
-    compiled_statements = (
-        await compiled_statement_service.get_compiled_statements_by_company(
-            company_id
-        )
+    compiled_statements = await compiled_statement_service.get_compiled_statements_by_company(
+        company_id
     )
-    return [
-        CompiledStatementResponse(**cs) for cs in compiled_statements
-    ]
+    return compiled_statements
 
 
 @router.get(
@@ -138,7 +131,7 @@ async def get_compiled_statement_by_company_and_type(
             company_id, statement_type
         )
     )
-    return CompiledStatementResponse(**compiled_statement)
+    return compiled_statement
 
 
 @router.put(
@@ -148,9 +141,7 @@ async def get_compiled_statement_by_company_and_type(
     description="Update an existing compiled statement with the provided information.",
 )
 async def update_compiled_statement(
-    compiled_statement_id: Annotated[
-        int, Path(description="Compiled statement ID")
-    ],
+    compiled_statement_id: Annotated[int, Path(description="Compiled statement ID")],
     compiled_statement_data: CompiledStatementUpdate,
     compiled_statement_service: Annotated[
         CompiledStatementService, Depends(get_compiled_statement_service)
@@ -166,12 +157,10 @@ async def update_compiled_statement(
     Returns:
         Updated compiled statement data.
     """
-    compiled_statement = (
-        await compiled_statement_service.update_compiled_statement(
-            compiled_statement_id, compiled_statement_data
-        )
+    compiled_statement = await compiled_statement_service.update_compiled_statement(
+        compiled_statement_id, compiled_statement_data
     )
-    return CompiledStatementResponse(**compiled_statement)
+    return compiled_statement
 
 
 @router.delete(
@@ -181,9 +170,7 @@ async def update_compiled_statement(
     description="Delete a compiled statement by its ID.",
 )
 async def delete_compiled_statement(
-    compiled_statement_id: Annotated[
-        int, Path(description="Compiled statement ID")
-    ],
+    compiled_statement_id: Annotated[int, Path(description="Compiled statement ID")],
     compiled_statement_service: Annotated[
         CompiledStatementService, Depends(get_compiled_statement_service)
     ],
@@ -197,7 +184,5 @@ async def delete_compiled_statement(
     Returns:
         Empty response with 204 status code.
     """
-    await compiled_statement_service.delete_compiled_statement(
-        compiled_statement_id
-    )
+    await compiled_statement_service.delete_compiled_statement(compiled_statement_id)
     return JSONResponse(content=None, status_code=status.HTTP_204_NO_CONTENT)

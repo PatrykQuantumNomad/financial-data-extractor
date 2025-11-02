@@ -8,12 +8,17 @@ Author: Patryk Golabek
 Copyright: 2025 Patryk Golabek
 """
 
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
-from app.db.dependencies import (get_company_repository,
-                                 get_compiled_statement_repository,
-                                 get_document_repository,
-                                 get_extraction_repository)
+from fastapi import Depends
+
+from app.db.dependencies import (
+    get_company_repository,
+    get_compiled_statement_repository,
+    get_document_repository,
+    get_extraction_repository,
+)
+
 # Runtime imports needed for type annotations
 from app.db.repositories.company import CompanyRepository
 from app.db.repositories.compiled_statement import CompiledStatementRepository
@@ -23,13 +28,10 @@ from app.services.company import CompanyService
 from app.services.compiled_statement import CompiledStatementService
 from app.services.document import DocumentService
 from app.services.extraction import ExtractionService
-from fastapi import Depends
 
 
 async def get_company_service(
-    company_repository: Annotated[
-        CompanyRepository, Depends(get_company_repository)
-    ],
+    company_repository: Annotated[CompanyRepository, Depends(get_company_repository)],
 ) -> CompanyService:
     """Dependency function to get CompanyService instance.
 
@@ -43,12 +45,8 @@ async def get_company_service(
 
 
 async def get_document_service(
-    document_repository: Annotated[
-        DocumentRepository, Depends(get_document_repository)
-    ],
-    company_repository: Annotated[
-        CompanyRepository, Depends(get_company_repository)
-    ],
+    document_repository: Annotated[DocumentRepository, Depends(get_document_repository)],
+    company_repository: Annotated[CompanyRepository, Depends(get_company_repository)],
 ) -> DocumentService:
     """Dependency function to get DocumentService instance.
 
@@ -63,12 +61,8 @@ async def get_document_service(
 
 
 async def get_extraction_service(
-    extraction_repository: Annotated[
-        ExtractionRepository, Depends(get_extraction_repository)
-    ],
-    document_repository: Annotated[
-        DocumentRepository, Depends(get_document_repository)
-    ],
+    extraction_repository: Annotated[ExtractionRepository, Depends(get_extraction_repository)],
+    document_repository: Annotated[DocumentRepository, Depends(get_document_repository)],
 ) -> ExtractionService:
     """Dependency function to get ExtractionService instance.
 
@@ -86,9 +80,7 @@ async def get_compiled_statement_service(
     compiled_statement_repository: Annotated[
         CompiledStatementRepository, Depends(get_compiled_statement_repository)
     ],
-    company_repository: Annotated[
-        CompanyRepository, Depends(get_company_repository)
-    ],
+    company_repository: Annotated[CompanyRepository, Depends(get_company_repository)],
 ) -> CompiledStatementService:
     """Dependency function to get CompiledStatementService instance.
 
@@ -99,6 +91,4 @@ async def get_compiled_statement_service(
     Returns:
         CompiledStatementService instance.
     """
-    return CompiledStatementService(
-        compiled_statement_repository, company_repository
-    )
+    return CompiledStatementService(compiled_statement_repository, company_repository)

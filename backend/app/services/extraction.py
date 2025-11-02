@@ -5,13 +5,12 @@ Author: Patryk Golabek
 Copyright: 2025 Patryk Golabek
 """
 
-from typing import Any
-
 from fastapi import HTTPException, status
 
+from app.db.models.extraction import Extraction
 from app.db.repositories.document import DocumentRepository
 from app.db.repositories.extraction import ExtractionRepository
-from app.schemas.extraction import ExtractionCreate, ExtractionUpdate
+from app.schemas.extraction import ExtractionCreate, ExtractionResponse, ExtractionUpdate
 
 
 class ExtractionService:
@@ -31,24 +30,31 @@ class ExtractionService:
         self.extraction_repository = extraction_repository
         self.document_repository = document_repository
 
-    async def create_extraction(
-        self, extraction_data: ExtractionCreate
-    ) -> dict[str, Any]:
+    def _model_to_response(self, extraction: Extraction) -> ExtractionResponse:
+        """Convert Extraction model to ExtractionResponse schema.
+
+        Args:
+            extraction: Extraction model instance.
+
+        Returns:
+            ExtractionResponse schema instance.
+        """
+        return ExtractionResponse.model_validate(extraction)
+
+    async def create_extraction(self, extraction_data: ExtractionCreate) -> ExtractionResponse:
         """Create a new extraction.
 
         Args:
             extraction_data: Extraction creation data.
 
         Returns:
-            Dictionary representing the created extraction.
+            ExtractionResponse representing the created extraction.
 
         Raises:
             HTTPException: If document not found or extraction creation fails.
         """
         # Verify document exists
-        document = await self.document_repository.get_by_id(
-            extraction_data.document_id
-        )
+        document = await self.document_repository.get_by_id(extraction_data.document_id)
         if not document:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -61,12 +67,7 @@ class ExtractionService:
                 statement_type=extraction_data.statement_type,
                 raw_data=extraction_data.raw_data,
             )
-            if not extraction:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to create extraction",
-                )
-            return extraction
+            return self._model_to_response(extraction)
         except HTTPException:
             raise
         except Exception as e:
@@ -75,14 +76,14 @@ class ExtractionService:
                 detail=f"Error creating extraction: {str(e)}",
             ) from e
 
-    async def get_extraction(self, extraction_id: int) -> dict[str, Any]:
+    async def get_extraction(self, extraction_id: int) -> ExtractionResponse:
         """Get extraction by ID.
 
         Args:
             extraction_id: Extraction ID.
 
         Returns:
-            Dictionary representing the extraction.
+            ExtractionResponse representing the extraction.
 
         Raises:
             HTTPException: If extraction not found.
@@ -93,18 +94,16 @@ class ExtractionService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Extraction with id {extraction_id} not found",
             )
-        return extraction
+        return self._model_to_response(extraction)
 
-    async def get_extractions_by_document(
-        self, document_id: int
-    ) -> list[dict[str, Any]]:
+    async def get_extractions_by_document(self, document_id: int) -> list[ExtractionResponse]:
         """Get all extractions for a document.
 
         Args:
             document_id: Document ID.
 
         Returns:
-            List of dictionaries representing extractions.
+            List of ExtractionResponse representing extractions.
 
         Raises:
             HTTPException: If document not found.
@@ -117,11 +116,12 @@ class ExtractionService:
                 detail=f"Document with id {document_id} not found",
             )
 
-        return await self.extraction_repository.get_by_document(document_id)
+        extractions = await self.extraction_repository.get_by_document(document_id)
+        return [self._model_to_response(ext) for ext in extractions]
 
     async def get_extraction_by_document_and_type(
         self, document_id: int, statement_type: str
-    ) -> dict[str, Any]:
+    ) -> ExtractionResponse:
         """Get extraction by document and statement type.
 
         Args:
@@ -129,7 +129,7 @@ class ExtractionService:
             statement_type: Type of financial statement.
 
         Returns:
-            Dictionary representing the extraction.
+            ExtractionResponse representing the extraction.
 
         Raises:
             HTTPException: If document or extraction not found.
@@ -153,11 +153,11 @@ class ExtractionService:
                     f"and statement_type {statement_type} not found"
                 ),
             )
-        return extraction
+        return self._model_to_response(extraction)
 
     async def update_extraction(
         self, extraction_id: int, extraction_data: ExtractionUpdate
-    ) -> dict[str, Any]:
+    ) -> ExtractionResponse:
         """Update an extraction.
 
         Args:
@@ -165,7 +165,7 @@ class ExtractionService:
             extraction_data: Extraction update data.
 
         Returns:
-            Dictionary representing the updated extraction.
+            ExtractionResponse representing the updated extraction.
 
         Raises:
             HTTPException: If extraction not found or update fails.
@@ -187,7 +187,7 @@ class ExtractionService:
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Failed to update extraction",
                 )
-            return extraction
+            return self._model_to_response(extraction)
         except HTTPException:
             raise
         except Exception as e:

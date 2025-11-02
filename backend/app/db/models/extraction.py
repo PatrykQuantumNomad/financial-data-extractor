@@ -8,11 +8,11 @@ Copyright: 2025 Patryk Golabek
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from app.db.base import Base
-from sqlalchemy import (DateTime, ForeignKey, Integer, String,
-                        UniqueConstraint, func)
+from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.db.models.company import Company
@@ -25,7 +25,9 @@ class Extraction(Base):
     __tablename__ = "extractions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    document_id: Mapped[int] = mapped_column(ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     statement_type: Mapped[str] = mapped_column(String(length=50), nullable=False, index=True)
     raw_data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     created_at: Mapped[datetime | None] = mapped_column(
@@ -46,7 +48,9 @@ class CompiledStatement(Base):
     __tablename__ = "compiled_statements"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id: Mapped[int] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     statement_type: Mapped[str] = mapped_column(String(length=50), nullable=False, index=True)
     data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     updated_at: Mapped[datetime | None] = mapped_column(
@@ -57,7 +61,9 @@ class CompiledStatement(Base):
     company: Mapped["Company"] = relationship("Company", back_populates="compiled_statements")
 
     # Unique constraint
-    __table_args__ = (UniqueConstraint("company_id", "statement_type", name="uq_company_statement_type"),)
+    __table_args__ = (
+        UniqueConstraint("company_id", "statement_type", name="uq_company_statement_type"),
+    )
 
     def __repr__(self) -> str:
         """String representation of CompiledStatement."""

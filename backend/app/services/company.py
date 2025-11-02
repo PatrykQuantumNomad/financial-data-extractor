@@ -5,12 +5,12 @@ Author: Patryk Golabek
 Copyright: 2025 Patryk Golabek
 """
 
-from typing import Any
-
-from fastapi import HTTPException, status
-
+from app.core.exceptions.db_exceptions import BaseDatabaseError
+from app.core.exceptions.service_exceptions import EntityNotFoundError, ServiceUnavailableError
+from app.core.exceptions.translators import translate_db_exception_to_service
+from app.db.models.company import Company
 from app.db.repositories.company import CompanyRepository
-from app.schemas.company import CompanyCreate, CompanyUpdate
+from app.schemas.company import CompanyCreate, CompanyDomain, CompanyUpdate
 
 
 class CompanyService:
@@ -24,17 +24,29 @@ class CompanyService:
         """
         self.repository = company_repository
 
-    async def create_company(self, company_data: CompanyCreate) -> dict[str, Any]:
+    def _model_to_domain(self, company: Company) -> CompanyDomain:
+        """Convert Company model to CompanyDomain schema.
+
+        Args:
+            company: Company model instance.
+
+        Returns:
+            CompanyDomain schema instance.
+        """
+        return CompanyDomain.model_validate(company)
+
+    async def create_company(self, company_data: CompanyCreate) -> CompanyDomain:
         """Create a new company.
 
         Args:
             company_data: Company creation data.
 
         Returns:
-            Dictionary representing the created company.
+            CompanyDomain representing the created company.
 
         Raises:
-            HTTPException: If company creation fails.
+            ValidationError: If validation fails.
+            ServiceUnavailableError: If database operation fails.
         """
         try:
             company = await self.repository.create(
@@ -43,61 +55,58 @@ class CompanyService:
                 primary_ticker=company_data.primary_ticker,
                 tickers=company_data.tickers,
             )
-            if not company:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to create company",
-                )
-            return company
+            return self._model_to_domain(company)
+        except BaseDatabaseError as e:
+            raise translate_db_exception_to_service(e) from e
         except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Error creating company: {str(e)}",
+            raise ServiceUnavailableError(
+                message=f"Unexpected error creating company: {str(e)}",
+                service_name="company_service",
             ) from e
 
-    async def get_company(self, company_id: int) -> dict[str, Any]:
+    async def get_company(self, company_id: int) -> CompanyDomain:
         """Get company by ID.
 
         Args:
             company_id: Company ID.
 
         Returns:
-            Dictionary representing the company.
+            CompanyDomain representing the company.
 
         Raises:
-            HTTPException: If company not found.
+            EntityNotFoundError: If company not found.
+            ServiceUnavailableError: If database operation fails.
         """
-        company = await self.repository.get_by_id(company_id)
-        if not company:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Company with id {company_id} not found",
-            )
-        return company
+        try:
+            company = await self.repository.get_by_id(company_id)
+            if not company:
+                raise EntityNotFoundError(entity_name="Company", entity_id=company_id)
+            return self._model_to_domain(company)
+        except BaseDatabaseError as e:
+            raise translate_db_exception_to_service(e) from e
 
-    async def get_company_by_ticker(self, ticker: str) -> dict[str, Any]:
+    async def get_company_by_ticker(self, ticker: str) -> CompanyDomain:
         """Get company by ticker symbol.
 
         Args:
             ticker: Stock ticker symbol.
 
         Returns:
-            Dictionary representing the company.
+            CompanyDomain representing the company.
 
         Raises:
-            HTTPException: If company not found.
+            EntityNotFoundError: If company not found.
+            ServiceUnavailableError: If database operation fails.
         """
-        company = await self.repository.get_by_ticker(ticker)
-        if not company:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Company with ticker {ticker} not found",
-            )
-        return company
+        try:
+            company = await self.repository.get_by_ticker(ticker)
+            if not company:
+                raise EntityNotFoundError(entity_name="Company", entity_id=ticker)
+            return self._model_to_domain(company)
+        except BaseDatabaseError as e:
+            raise translate_db_exception_to_service(e) from e
 
-    async def get_all_companies(
-        self, skip: int = 0, limit: int = 100
-    ) -> list[dict[str, Any]]:
+    async def get_all_companies(self, skip: int = 0, limit: int = 100) -> list[CompanyDomain]:
         """Get all companies with pagination.
 
         Args:
@@ -105,13 +114,12 @@ class CompanyService:
             limit: Maximum number of records to return.
 
         Returns:
-            List of dictionaries representing companies.
+            List of CompanyDomain representing companies.
         """
-        return await self.repository.get_all(skip=skip, limit=limit)
+        companies = await self.repository.get_all(skip=skip, limit=limit)
+        return [self._model_to_domain(company) for company in companies]
 
-    async def update_company(
-        self, company_id: int, company_data: CompanyUpdate
-    ) -> dict[str, Any]:
+    async def update_company(self, company_id: int, company_data: CompanyUpdate) -> CompanyDomain:
         """Update a company.
 
         Args:
@@ -119,20 +127,19 @@ class CompanyService:
             company_data: Company update data.
 
         Returns:
-            Dictionary representing the updated company.
+            CompanyDomain representing the updated company.
 
         Raises:
-            HTTPException: If company not found or update fails.
+            EntityNotFoundError: If company not found.
+            ValidationError: If validation fails.
+            ServiceUnavailableError: If database operation fails.
         """
-        # Check if company exists
-        existing = await self.repository.get_by_id(company_id)
-        if not existing:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Company with id {company_id} not found",
-            )
-
         try:
+            # Check if company exists
+            existing = await self.repository.get_by_id(company_id)
+            if not existing:
+                raise EntityNotFoundError(entity_name="Company", entity_id=company_id)
+
             company = await self.repository.update(
                 company_id=company_id,
                 name=company_data.name,
@@ -141,18 +148,13 @@ class CompanyService:
                 tickers=company_data.tickers,
             )
             if not company:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to update company",
+                raise ServiceUnavailableError(
+                    message="Failed to update company",
+                    service_name="company_service",
                 )
-            return company
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Error updating company: {str(e)}",
-            ) from e
+            return self._model_to_domain(company)
+        except BaseDatabaseError as e:
+            raise translate_db_exception_to_service(e) from e
 
     async def delete_company(self, company_id: int) -> None:
         """Delete a company by ID.
@@ -161,19 +163,20 @@ class CompanyService:
             company_id: Company ID.
 
         Raises:
-            HTTPException: If company not found or deletion fails.
+            EntityNotFoundError: If company not found.
+            ServiceUnavailableError: If deletion fails.
         """
-        # Check if company exists
-        existing = await self.repository.get_by_id(company_id)
-        if not existing:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Company with id {company_id} not found",
-            )
+        try:
+            # Check if company exists
+            existing = await self.repository.get_by_id(company_id)
+            if not existing:
+                raise EntityNotFoundError(entity_name="Company", entity_id=company_id)
 
-        deleted = await self.repository.delete(company_id)
-        if not deleted:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to delete company",
-            )
+            deleted = await self.repository.delete(company_id)
+            if not deleted:
+                raise ServiceUnavailableError(
+                    message="Failed to delete company",
+                    service_name="company_service",
+                )
+        except BaseDatabaseError as e:
+            raise translate_db_exception_to_service(e) from e

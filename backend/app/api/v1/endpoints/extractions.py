@@ -10,11 +10,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Path, status
 from fastapi.responses import JSONResponse
 
-from app.schemas.extraction import (
-    ExtractionCreate,
-    ExtractionResponse,
-    ExtractionUpdate,
-)
+from app.schemas.extraction import ExtractionCreate, ExtractionResponse, ExtractionUpdate
 from app.services.dependencies import get_extraction_service
 from app.services.extraction import ExtractionService
 
@@ -30,9 +26,7 @@ router = APIRouter(prefix="/extractions", tags=["Extractions"])
 )
 async def create_extraction(
     extraction_data: ExtractionCreate,
-    extraction_service: Annotated[
-        ExtractionService, Depends(get_extraction_service)
-    ],
+    extraction_service: Annotated[ExtractionService, Depends(get_extraction_service)],
 ) -> ExtractionResponse:
     """Create a new extraction.
 
@@ -44,7 +38,7 @@ async def create_extraction(
         Created extraction data.
     """
     extraction = await extraction_service.create_extraction(extraction_data)
-    return ExtractionResponse(**extraction)
+    return extraction
 
 
 @router.get(
@@ -55,9 +49,7 @@ async def create_extraction(
 )
 async def get_extraction(
     extraction_id: Annotated[int, Path(description="Extraction ID")],
-    extraction_service: Annotated[
-        ExtractionService, Depends(get_extraction_service)
-    ],
+    extraction_service: Annotated[ExtractionService, Depends(get_extraction_service)],
 ) -> ExtractionResponse:
     """Get an extraction by ID.
 
@@ -69,7 +61,7 @@ async def get_extraction(
         Extraction data.
     """
     extraction = await extraction_service.get_extraction(extraction_id)
-    return ExtractionResponse(**extraction)
+    return extraction
 
 
 @router.get(
@@ -80,9 +72,7 @@ async def get_extraction(
 )
 async def list_extractions_by_document(
     document_id: Annotated[int, Path(description="Document ID")],
-    extraction_service: Annotated[
-        ExtractionService, Depends(get_extraction_service)
-    ],
+    extraction_service: Annotated[ExtractionService, Depends(get_extraction_service)],
 ) -> list[ExtractionResponse]:
     """List all extractions for a document.
 
@@ -94,7 +84,7 @@ async def list_extractions_by_document(
         List of extractions.
     """
     extractions = await extraction_service.get_extractions_by_document(document_id)
-    return [ExtractionResponse(**ext) for ext in extractions]
+    return extractions
 
 
 @router.get(
@@ -106,9 +96,7 @@ async def list_extractions_by_document(
 async def get_extraction_by_document_and_type(
     document_id: Annotated[int, Path(description="Document ID")],
     statement_type: Annotated[str, Path(description="Statement type")],
-    extraction_service: Annotated[
-        ExtractionService, Depends(get_extraction_service)
-    ],
+    extraction_service: Annotated[ExtractionService, Depends(get_extraction_service)],
 ) -> ExtractionResponse:
     """Get an extraction by document and statement type.
 
@@ -123,7 +111,7 @@ async def get_extraction_by_document_and_type(
     extraction = await extraction_service.get_extraction_by_document_and_type(
         document_id, statement_type
     )
-    return ExtractionResponse(**extraction)
+    return extraction
 
 
 @router.put(
@@ -135,9 +123,7 @@ async def get_extraction_by_document_and_type(
 async def update_extraction(
     extraction_id: Annotated[int, Path(description="Extraction ID")],
     extraction_data: ExtractionUpdate,
-    extraction_service: Annotated[
-        ExtractionService, Depends(get_extraction_service)
-    ],
+    extraction_service: Annotated[ExtractionService, Depends(get_extraction_service)],
 ) -> ExtractionResponse:
     """Update an extraction.
 
@@ -149,10 +135,8 @@ async def update_extraction(
     Returns:
         Updated extraction data.
     """
-    extraction = await extraction_service.update_extraction(
-        extraction_id, extraction_data
-    )
-    return ExtractionResponse(**extraction)
+    extraction = await extraction_service.update_extraction(extraction_id, extraction_data)
+    return extraction
 
 
 @router.delete(
@@ -163,9 +147,7 @@ async def update_extraction(
 )
 async def delete_extraction(
     extraction_id: Annotated[int, Path(description="Extraction ID")],
-    extraction_service: Annotated[
-        ExtractionService, Depends(get_extraction_service)
-    ],
+    extraction_service: Annotated[ExtractionService, Depends(get_extraction_service)],
 ) -> JSONResponse:
     """Delete an extraction.
 

@@ -2,17 +2,19 @@
 Database dependency injection for FastAPI.
 
 This module provides dependency functions for accessing the database
-connection pool in FastAPI endpoints.
+async sessions and repositories in FastAPI endpoints.
 
 Author: Patryk Golabek
 Copyright: 2025 Patryk Golabek
 """
 
+from collections.abc import AsyncGenerator
 from typing import Annotated
 
-from fastapi import Depends, Request
-from psycopg_pool import AsyncConnectionPool
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.base import AsyncSessionLocal
 from app.db.repositories import (
     CompanyRepository,
     CompiledStatementRepository,
@@ -21,75 +23,77 @@ from app.db.repositories import (
 )
 
 
-async def get_db_pool(request: Request) -> AsyncConnectionPool:
-    """Dependency function to get the database connection pool from FastAPI app state.
+async def get_db_session() -> AsyncGenerator[AsyncSession]:
+    """Dependency function to get an async database session.
 
-    Args:
-        request: FastAPI request object.
+    Creates a new session per request and ensures it's closed after the request completes.
 
-    Returns:
-        Async connection pool for database operations.
+    Yields:
+        AsyncSession: Async database session.
 
     Raises:
-        RuntimeError: If database pool is not available in app state.
+        RuntimeError: If database session cannot be created.
     """
-    pool: AsyncConnectionPool | None = getattr(request.app.state, "db_pool", None)
-    if pool is None:
-        raise RuntimeError("Database connection pool not initialized")
-    return pool
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
 
 
 async def get_company_repository(
-    db_pool: Annotated[AsyncConnectionPool, Depends(get_db_pool)]
+    session: Annotated[AsyncSession, Depends(get_db_session)]
 ) -> CompanyRepository:
     """Dependency function to get CompanyRepository instance.
 
     Args:
-        db_pool: Database connection pool (injected).
+        session: Async database session (injected).
 
     Returns:
         CompanyRepository instance.
     """
-    return CompanyRepository(db_pool)
+    return CompanyRepository(session)
 
 
 async def get_document_repository(
-    db_pool: Annotated[AsyncConnectionPool, Depends(get_db_pool)]
+    session: Annotated[AsyncSession, Depends(get_db_session)]
 ) -> DocumentRepository:
     """Dependency function to get DocumentRepository instance.
 
     Args:
-        db_pool: Database connection pool (injected).
+        session: Async database session (injected).
 
     Returns:
         DocumentRepository instance.
     """
-    return DocumentRepository(db_pool)
+    return DocumentRepository(session)
 
 
 async def get_extraction_repository(
-    db_pool: Annotated[AsyncConnectionPool, Depends(get_db_pool)]
+    session: Annotated[AsyncSession, Depends(get_db_session)]
 ) -> ExtractionRepository:
     """Dependency function to get ExtractionRepository instance.
 
     Args:
-        db_pool: Database connection pool (injected).
+        session: Async database session (injected).
 
     Returns:
         ExtractionRepository instance.
     """
-    return ExtractionRepository(db_pool)
+    return ExtractionRepository(session)
 
 
 async def get_compiled_statement_repository(
-    db_pool: Annotated[AsyncConnectionPool, Depends(get_db_pool)]
+    session: Annotated[AsyncSession, Depends(get_db_session)]
 ) -> CompiledStatementRepository:
     """Dependency function to get CompiledStatementRepository instance.
 
     Args:
-        db_pool: Database connection pool (injected).
+        session: Async database session (injected).
 
     Returns:
         CompiledStatementRepository instance.
     """
-    return CompiledStatementRepository(db_pool)
+    return CompiledStatementRepository(session)

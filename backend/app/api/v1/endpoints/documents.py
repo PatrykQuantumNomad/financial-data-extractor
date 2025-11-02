@@ -7,12 +7,12 @@ Copyright: 2025 Patryk Golabek
 
 from typing import Annotated
 
-from app.schemas.document import (DocumentCreate, DocumentResponse,
-                                  DocumentUpdate)
-from app.services.dependencies import get_document_service
-from app.services.document import DocumentService
 from fastapi import APIRouter, Depends, Path, Query, status
 from fastapi.responses import JSONResponse
+
+from app.schemas.document import DocumentCreate, DocumentResponse, DocumentUpdate
+from app.services.dependencies import get_document_service
+from app.services.document import DocumentService
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
@@ -38,7 +38,7 @@ async def create_document(
         Created document data.
     """
     document = await document_service.create_document(document_data)
-    return DocumentResponse(**document)
+    return document
 
 
 @router.get(
@@ -61,7 +61,7 @@ async def get_document(
         Document data.
     """
     document = await document_service.get_document(document_id)
-    return DocumentResponse(**document)
+    return document
 
 
 @router.get(
@@ -92,7 +92,7 @@ async def list_documents_by_company(
     documents = await document_service.get_documents_by_company(
         company_id=company_id, skip=skip, limit=limit
     )
-    return [DocumentResponse(**doc) for doc in documents]
+    return documents
 
 
 @router.get(
@@ -119,7 +119,7 @@ async def get_documents_by_company_and_year(
     documents = await document_service.get_documents_by_company_and_year(
         company_id=company_id, fiscal_year=fiscal_year
     )
-    return [DocumentResponse(**doc) for doc in documents]
+    return documents
 
 
 @router.get(
@@ -155,7 +155,7 @@ async def get_documents_by_company_and_type(
         skip=skip,
         limit=limit,
     )
-    return [DocumentResponse(**doc) for doc in documents]
+    return documents
 
 
 @router.put(
@@ -180,7 +180,7 @@ async def update_document(
         Updated document data.
     """
     document = await document_service.update_document(document_id, document_data)
-    return DocumentResponse(**document)
+    return document
 
 
 @router.delete(

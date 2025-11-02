@@ -5,11 +5,16 @@ Author: Patryk Golabek
 Copyright: 2025 Patryk Golabek
 """
 
-import json
-from typing import Any
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.exc import IntegrityError, OperationalError
 
-from psycopg_pool import AsyncConnectionPool
-
+from app.core.exceptions.db_exceptions import (
+    DatabaseConnectionError,
+    DatabaseIntegrityError,
+    DatabaseTransactionError,
+)
+from app.db.models.company import Company
 from app.db.repositories.base import BaseRepository
 
 
@@ -22,7 +27,7 @@ class CompanyRepository(BaseRepository):
         ir_url: str,
         primary_ticker: str | None = None,
         tickers: list[dict[str, str]] | None = None,
-    ) -> dict[str, Any]:
+    ) -> Company:
         """Create a new company.
 
         Args:
@@ -32,53 +37,72 @@ class CompanyRepository(BaseRepository):
             tickers: List of ticker dictionaries.
 
         Returns:
-            Dictionary representing the created company.
-        """
-        query = """
-            INSERT INTO companies (name, ir_url, primary_ticker, tickers)
-            VALUES (%(name)s, %(ir_url)s, %(primary_ticker)s, %(tickers)s)
-            RETURNING *
-        """
-        params = {
-            "name": name,
-            "ir_url": ir_url,
-            "primary_ticker": primary_ticker,
-            "tickers": json.dumps(tickers) if tickers else None,
-        }
-        return await self.execute_one(query, params)  # type: ignore
+            Company model instance.
 
-    async def get_by_id(self, company_id: int) -> dict[str, Any] | None:
+        Raises:
+            DatabaseIntegrityError: If integrity constraint is violated.
+            DatabaseConnectionError: If database connection fails.
+            DatabaseTransactionError: If transaction fails.
+        """
+        try:
+            company = Company(
+                name=name,
+                ir_url=ir_url,
+                primary_ticker=primary_ticker,
+                tickers=tickers,
+            )
+            self.session.add(company)
+            await self.session.flush()
+            await self.session.refresh(company)
+            return company
+        except IntegrityError as e:
+            raise DatabaseIntegrityError(
+                message=f"Failed to create company: {str(e.orig)}",
+                entity_name="Company",
+            ) from e
+        except OperationalError as e:
+            raise DatabaseConnectionError(
+                message=f"Database connection error: {str(e.orig)}"
+            ) from e
+        except Exception as e:
+            raise DatabaseTransactionError(message=f"Failed to create company: {str(e)}") from e
+
+    async def get_by_id(self, company_id: int) -> Company | None:
         """Get company by ID.
 
         Args:
             company_id: Company ID.
 
         Returns:
-            Dictionary representing the company, or None if not found.
+            Company model instance, or None if not found.
         """
-        query = "SELECT * FROM companies WHERE id = %(id)s"
-        return await self.execute_one(query, {"id": company_id})
+        return await self.session.get(Company, company_id)
 
-    async def get_by_ticker(self, ticker: str) -> dict[str, Any] | None:
+    async def get_by_ticker(self, ticker: str) -> Company | None:
         """Get company by ticker symbol.
 
         Args:
             ticker: Stock ticker symbol.
 
         Returns:
-            Dictionary representing the company, or None if not found.
+            Company model instance, or None if not found.
         """
-        query = """
-            SELECT * FROM companies
-            WHERE primary_ticker = %(ticker)s
-            OR tickers @> %(ticker_json)s::jsonb
-        """
-        ticker_json = json.dumps([{"ticker": ticker}])
-        return await self.execute_one(query, {"ticker": ticker, "ticker_json": ticker_json})
+        # First try primary_ticker
+        stmt = select(Company).where(Company.primary_ticker == ticker)
+        result = await self.session.execute(stmt)
+        company = result.scalar_one_or_none()
 
-    async def get_all(
-        self, skip: int = 0, limit: int = 100
-    ) -> list[dict[str, Any]]:
+        if company is not None:
+            return company
+
+        # Then try JSONB tickers array
+        stmt = select(Company).where(Company.tickers.contains([{"ticker": ticker}], type_=JSONB))
+        result = await self.session.execute(stmt)
+        company = result.scalar_one_or_none()
+
+        return company
+
+    async def get_all(self, skip: int = 0, limit: int = 100) -> list[Company]:
         """Get all companies with pagination.
 
         Args:
@@ -86,10 +110,11 @@ class CompanyRepository(BaseRepository):
             limit: Maximum number of records to return.
 
         Returns:
-            List of dictionaries representing companies.
+            List of Company model instances.
         """
-        query = "SELECT * FROM companies ORDER BY id LIMIT %(limit)s OFFSET %(skip)s"
-        return await self.execute_query(query, {"limit": limit, "skip": skip})
+        stmt = select(Company).order_by(Company.id).offset(skip).limit(limit)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def update(
         self,
@@ -98,7 +123,7 @@ class CompanyRepository(BaseRepository):
         ir_url: str | None = None,
         primary_ticker: str | None = None,
         tickers: list[dict[str, str]] | None = None,
-    ) -> dict[str, Any] | None:
+    ) -> Company | None:
         """Update a company.
 
         Args:
@@ -109,37 +134,41 @@ class CompanyRepository(BaseRepository):
             tickers: List of ticker dictionaries (optional).
 
         Returns:
-            Dictionary representing the updated company, or None if not found.
+            Company model instance, or None if not found.
+
+        Raises:
+            DatabaseIntegrityError: If integrity constraint is violated.
+            DatabaseConnectionError: If database connection fails.
+            DatabaseTransactionError: If transaction fails.
         """
-        updates = []
-        params: dict[str, Any] = {"id": company_id}
+        company = await self.session.get(Company, company_id)
+        if company is None:
+            return None
 
-        if name is not None:
-            updates.append("name = %(name)s")
-            params["name"] = name
+        try:
+            if name is not None:
+                company.name = name
+            if ir_url is not None:
+                company.ir_url = ir_url
+            if primary_ticker is not None:
+                company.primary_ticker = primary_ticker
+            if tickers is not None:
+                company.tickers = tickers
 
-        if ir_url is not None:
-            updates.append("ir_url = %(ir_url)s")
-            params["ir_url"] = ir_url
-
-        if primary_ticker is not None:
-            updates.append("primary_ticker = %(primary_ticker)s")
-            params["primary_ticker"] = primary_ticker
-
-        if tickers is not None:
-            updates.append("tickers = %(tickers)s::jsonb")
-            params["tickers"] = json.dumps(tickers)
-
-        if not updates:
-            return await self.get_by_id(company_id)
-
-        query = f"""
-            UPDATE companies
-            SET {', '.join(updates)}
-            WHERE id = %(id)s
-            RETURNING *
-        """
-        return await self.execute_one(query, params)  # type: ignore
+            await self.session.flush()
+            await self.session.refresh(company)
+            return company
+        except IntegrityError as e:
+            raise DatabaseIntegrityError(
+                message=f"Failed to update company: {str(e.orig)}",
+                entity_name="Company",
+            ) from e
+        except OperationalError as e:
+            raise DatabaseConnectionError(
+                message=f"Database connection error: {str(e.orig)}"
+            ) from e
+        except Exception as e:
+            raise DatabaseTransactionError(message=f"Failed to update company: {str(e)}") from e
 
     async def delete(self, company_id: int) -> bool:
         """Delete a company by ID.
@@ -150,6 +179,10 @@ class CompanyRepository(BaseRepository):
         Returns:
             True if company was deleted, False otherwise.
         """
-        query = "DELETE FROM companies WHERE id = %(id)s"
-        rows_affected = await self.execute_delete(query, {"id": company_id})
-        return rows_affected > 0
+        company = await self.session.get(Company, company_id)
+        if company is None:
+            return False
+
+        await self.session.delete(company)
+        await self.session.flush()
+        return True

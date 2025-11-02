@@ -6,18 +6,20 @@ Copyright: 2025 Patryk Golabek
 """
 
 from datetime import datetime
-from typing import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from app.api.v1.endpoints import (companies_router, compiled_statements_router,
-                                  documents_router, extractions_router,
-                                  tasks_router)
-from app.schemas.company import CompanyResponse
-from app.schemas.document import DocumentResponse
-from app.schemas.extraction import ExtractionResponse
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
+
+from app.api.v1.endpoints import (
+    companies_router,
+    compiled_statements_router,
+    documents_router,
+    extractions_router,
+    tasks_router,
+)
+from app.schemas.company import CompanyDomain
 
 
 @pytest.fixture
@@ -61,16 +63,16 @@ def mock_extraction_service() -> MagicMock:
 
 
 @pytest.fixture
-def sample_company_data() -> dict:
+def sample_company_data() -> CompanyDomain:
     """Sample company data for testing."""
-    return {
-        "id": 1,
-        "name": "Test Company",
-        "ir_url": "https://example.com/investor-relations",
-        "primary_ticker": "TEST",
-        "tickers": [{"exchange": "NYSE", "symbol": "TEST"}],
-        "created_at": datetime(2024, 1, 1),
-    }
+    return CompanyDomain(
+        id=1,
+        name="Test Company",
+        ir_url="https://example.com/investor-relations",
+        primary_ticker="TEST",
+        tickers=[{"exchange": "NYSE", "symbol": "TEST"}],
+        created_at=datetime(2024, 1, 1),
+    )
 
 
 @pytest.fixture
@@ -175,6 +177,7 @@ def mock_call_next() -> MagicMock:
     Returns:
         Mock call_next coroutine.
     """
+
     async def call_next(request):
         response = MagicMock()
         response.headers = {}

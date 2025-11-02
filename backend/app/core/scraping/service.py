@@ -14,7 +14,7 @@ import logging
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
-from crawl4ai import AsyncWebCrawler
+from crawl4ai import AsyncWebCrawler, LLMConfig
 from crawl4ai.extraction_strategy import LLMExtractionStrategy
 from pydantic import BaseModel
 
@@ -75,9 +75,7 @@ class ScrapingService:
             await self._crawler.close()
             self._crawler = None
 
-    async def discover_pdf_urls(
-        self, ir_url: str, use_llm: bool = True
-    ) -> list[DiscoveredPDF]:
+    async def discover_pdf_urls(self, ir_url: str, use_llm: bool = True) -> list[DiscoveredPDF]:
         """
         Discover PDF URLs from an investor relations website.
 
@@ -192,8 +190,11 @@ class ScrapingService:
 
         # Create LLM extraction strategy
         try:
+            # Create LLM config with API token
+            llm_config = LLMConfig(api_token=self.openai_api_key)
+
             extraction_strategy = LLMExtractionStrategy(
-                api_token=self.openai_api_key,
+                llm_config=llm_config,
                 schema=extraction_schema,
                 extraction_type="schema",
                 instruction=(
@@ -320,9 +321,7 @@ class ScrapingService:
 
         return unique_pdfs
 
-    def _parse_llm_results(
-        self, result: Any, base_url: str
-    ) -> list[DiscoveredPDF]:
+    def _parse_llm_results(self, result: Any, base_url: str) -> list[DiscoveredPDF]:
         """
         Parse LLM extraction results into DiscoveredPDF objects.
 
@@ -428,7 +427,10 @@ class ScrapingService:
         url_lower = url.lower()
 
         # Check for annual report indicators
-        if any(keyword in text_lower or keyword in url_lower for keyword in ["annual", "ar ", "year-end"]):
+        if any(
+            keyword in text_lower or keyword in url_lower
+            for keyword in ["annual", "ar ", "year-end"]
+        ):
             return "annual_report"
 
         # Check for quarterly report indicators

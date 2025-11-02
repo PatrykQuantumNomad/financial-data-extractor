@@ -8,10 +8,11 @@ Copyright: 2025 Patryk Golabek
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from app.db.base import Base
 from sqlalchemy import DateTime, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.db.models.document import Document
@@ -35,11 +36,15 @@ class Company(Base):
     )
 
     # Relationships
-    documents: Mapped[list["Document"]] = relationship("Document", back_populates="company", cascade="all, delete-orphan")
+    documents: Mapped[list["Document"]] = relationship(
+        "Document", back_populates="company", cascade="all, delete-orphan"
+    )
     compiled_statements: Mapped[list["CompiledStatement"]] = relationship(
         "CompiledStatement", back_populates="company", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
         """String representation of Company."""
-        return f"<Company(id={self.id}, name='{self.name}', primary_ticker='{self.primary_ticker}')>"
+        return (
+            f"<Company(id={self.id}, name='{self.name}', primary_ticker='{self.primary_ticker}')>"
+        )

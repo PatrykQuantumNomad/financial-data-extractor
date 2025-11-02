@@ -138,6 +138,7 @@
     "repr",
     "shadcn",
     "sqlalchemy",
+    "testcontainer",
     "uvicorn",
     "VENV"
   ],

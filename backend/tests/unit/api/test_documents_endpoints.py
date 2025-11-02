@@ -71,18 +71,17 @@ class TestDocumentsEndpoints:
         assert data["id"] == 1
         mock_document_service.get_document.assert_called_once_with(1)
 
-    def test_get_document_by_id_not_found(
-        self, test_client: TestClient, mock_document_service
-    ):
+    def test_get_document_by_id_not_found(self, test_client: TestClient, mock_document_service):
         """Test retrieval of non-existent document."""
         # Arrange
-        from app.core.exceptions.custom_exceptions import JSONFileNotFoundError
+        from app.core.exceptions.api_exceptions import JSONFileNotFoundError
+
         mock_document_service.get_document.side_effect = JSONFileNotFoundError(
             filename="document_999.json"
         )
 
         # Act
-        response = test_client.get("/documents/999")
+        test_client.get("/documents/999")
 
         # Assert
         mock_document_service.get_document.assert_called_once_with(999)
@@ -142,9 +141,7 @@ class TestDocumentsEndpoints:
             company_id=1, fiscal_year=2023
         )
 
-    def test_get_documents_by_company_and_year_with_invalid_year(
-        self, test_client: TestClient
-    ):
+    def test_get_documents_by_company_and_year_with_invalid_year(self, test_client: TestClient):
         """Test retrieval with invalid fiscal year."""
         # Arrange - year outside valid range
         # Act
@@ -163,9 +160,7 @@ class TestDocumentsEndpoints:
         ]
 
         # Act
-        response = test_client.get(
-            "/documents/companies/1/type/Annual%20Report?skip=0&limit=10"
-        )
+        response = test_client.get("/documents/companies/1/type/Annual%20Report?skip=0&limit=10")
 
         # Assert
         assert response.status_code == status.HTTP_200_OK
@@ -181,9 +176,7 @@ class TestDocumentsEndpoints:
         """Test retrieval with invalid pagination."""
         # Arrange - negative skip
         # Act
-        response = test_client.get(
-            "/documents/companies/1/type/Annual%20Report?skip=-1&limit=10"
-        )
+        response = test_client.get("/documents/companies/1/type/Annual%20Report?skip=-1&limit=10")
 
         # Assert
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
@@ -218,9 +211,7 @@ class TestDocumentsEndpoints:
         # Assert
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
-    def test_delete_document_success(
-        self, test_client: TestClient, mock_document_service
-    ):
+    def test_delete_document_success(self, test_client: TestClient, mock_document_service):
         """Test successful document deletion."""
         # Arrange
         mock_document_service.delete_document.return_value = None
@@ -232,18 +223,17 @@ class TestDocumentsEndpoints:
         assert response.status_code == status.HTTP_204_NO_CONTENT
         mock_document_service.delete_document.assert_called_once_with(1)
 
-    def test_delete_document_not_found(
-        self, test_client: TestClient, mock_document_service
-    ):
+    def test_delete_document_not_found(self, test_client: TestClient, mock_document_service):
         """Test deletion of non-existent document."""
         # Arrange
-        from app.core.exceptions.custom_exceptions import JSONFileNotFoundError
+        from app.core.exceptions.api_exceptions import JSONFileNotFoundError
+
         mock_document_service.delete_document.side_effect = JSONFileNotFoundError(
             filename="document_999.json"
         )
 
         # Act
-        response = test_client.delete("/documents/999")
+        test_client.delete("/documents/999")
 
         # Assert
         mock_document_service.delete_document.assert_called_once_with(999)
@@ -271,9 +261,7 @@ class TestDocumentsEndpoints:
         data = response.json()
         assert data["file_path"] == "/data/pdfs/annual-report-2023.pdf"
 
-    def test_list_documents_by_company_with_limit_over_maximum(
-        self, test_client: TestClient
-    ):
+    def test_list_documents_by_company_with_limit_over_maximum(self, test_client: TestClient):
         """Test listing documents with limit exceeding maximum."""
         # Arrange - limit > 100
         # Act
@@ -282,9 +270,7 @@ class TestDocumentsEndpoints:
         # Assert
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
-    def test_list_documents_empty_result(
-        self, test_client: TestClient, mock_document_service
-    ):
+    def test_list_documents_empty_result(self, test_client: TestClient, mock_document_service):
         """Test listing documents with empty result."""
         # Arrange
         mock_document_service.get_documents_by_company.return_value = []

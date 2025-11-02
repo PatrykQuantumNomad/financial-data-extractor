@@ -1,45 +1,26 @@
 """
 Celery tasks for web scraping and document discovery.
 
-Tasks handle scraping investor relations websites, downloading PDFs,
-and classifying documents.
+Tasks are thin wrappers around worker classes that handle business logic.
+This separation allows testing business logic without Celery infrastructure.
 
 Author: Patryk Golabek
 Copyright: 2025 Patryk Golabek
 """
 
-import asyncio
 import logging
-from pathlib import Path
 from typing import Any
 
 import httpx
-from app.core.scraping import ScrapingService
-from app.db.repositories.company import CompanyRepository
-from app.db.repositories.document import DocumentRepository
-from app.tasks.celery_app import celery_app
-from app.tasks.utils import (calculate_file_hash, get_db_context,
-                             get_pdf_storage_path, run_async,
-                             validate_task_result)
 from celery import Task
-from celery.exceptions import Retry
+
+from app.tasks.celery_app import celery_app
+from app.tasks.progress import CeleryProgressCallback
+from app.tasks.utils import get_db_context, run_async, validate_task_result
+from app.workers.scraping_worker import ScrapingWorker
 from config import Settings
 
 logger = logging.getLogger(__name__)
-
-# Default HTTP headers for polite web scraping
-DEFAULT_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
-    ),
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Accept-Encoding": "gzip, deflate, br",
-    "Connection": "keep-alive",
-    "Upgrade-Insecure-Requests": "1",
-}
 
 
 @celery_app.task(
@@ -63,7 +44,7 @@ def scrape_investor_relations(self: Task, company_id: int) -> dict[str, Any]:
     """
     task_id = self.request.id
     logger.info(
-        f"Starting scrape_investor_relations task",
+        "Starting scrape_investor_relations task",
         extra={
             "task_id": task_id,
             "company_id": company_id,
@@ -71,52 +52,26 @@ def scrape_investor_relations(self: Task, company_id: int) -> dict[str, Any]:
     )
 
     try:
-        # Update task state
-        self.update_state(state="PROGRESS", meta={"step": "fetching_company_info"})
+        # Create progress callback for worker
+        progress_callback = CeleryProgressCallback(self)
 
-        # Get company information
-        company_data = run_async(_get_company_info(company_id))
-        if not company_data:
-            raise ValueError(f"Company with id {company_id} not found")
+        # Create worker with database session
+        async def _execute_worker():
+            async with get_db_context() as session:
+                worker = ScrapingWorker(session, progress_callback)
+                settings = Settings()
+                return await worker.scrape_investor_relations(company_id, settings.openai_api_key)
 
-        ir_url = company_data["ir_url"]
-        logger.info(
-            f"Scraping IR website: {ir_url}",
-            extra={"task_id": task_id, "company_id": company_id, "url": ir_url},
-        )
+        result = run_async(_execute_worker())
 
-        # Update task state
-        self.update_state(state="PROGRESS", meta={"step": "scraping_website"})
-
-        # Get OpenAI API key for LLM extraction (optional - falls back to CSS if not available)
-        settings = Settings()
-        openai_api_key = settings.openai_api_key
-
-        # Scrape website for PDFs using Crawl4AI
-        discovered_urls = run_async(_discover_pdf_urls(ir_url, openai_api_key))
-
-        logger.info(
-            f"Discovered {len(discovered_urls)} PDF URLs",
-            extra={"task_id": task_id, "company_id": company_id, "count": len(discovered_urls)},
-        )
-
-        # Update task state
-        self.update_state(state="PROGRESS", meta={"step": "creating_document_records", "discovered": len(discovered_urls)})
-
-        # Create document records for discovered PDFs
-        created_documents = run_async(_create_document_records(company_id, discovered_urls))
-
-        result = {
-            "task_id": task_id,
-            "company_id": company_id,
-            "status": "success",
-            "discovered_count": len(discovered_urls),
-            "created_count": len(created_documents),
-            "documents": created_documents,
-        }
+        # Add task_id to result for consistency
+        result["task_id"] = task_id
 
         validate_task_result(result, ["task_id", "company_id", "status"])
-        logger.info(f"Completed scrape_investor_relations task", extra={"task_id": task_id, "result": result})
+        logger.info(
+            "Completed scrape_investor_relations task",
+            extra={"task_id": task_id, "result": result},
+        )
 
         return result
 
@@ -125,7 +80,7 @@ def scrape_investor_relations(self: Task, company_id: int) -> dict[str, Any]:
         if e.response.status_code == 403:
             logger.warning(
                 f"403 Forbidden when scraping {company_id} - website blocking requests",
-                extra={"task_id": task_id, "company_id": company_id, "url": ir_url},
+                extra={"task_id": task_id, "company_id": company_id},
             )
             # Return empty results instead of failing
             return {
@@ -140,7 +95,11 @@ def scrape_investor_relations(self: Task, company_id: int) -> dict[str, Any]:
         # For other HTTP errors, retry
         logger.error(
             f"HTTP error in scrape_investor_relations task: {e}",
-            extra={"task_id": task_id, "company_id": company_id, "status_code": e.response.status_code},
+            extra={
+                "task_id": task_id,
+                "company_id": company_id,
+                "status_code": e.response.status_code,
+            },
             exc_info=True,
         )
         raise self.retry(exc=e)
@@ -176,45 +135,31 @@ def download_pdf(self: Task, document_id: int) -> dict[str, Any]:
         ValueError: If document not found or download fails.
     """
     task_id = self.request.id
-    logger.info(f"Starting download_pdf task", extra={"task_id": task_id, "document_id": document_id})
+    logger.info(
+        "Starting download_pdf task",
+        extra={"task_id": task_id, "document_id": document_id},
+    )
 
     try:
-        # Update task state
-        self.update_state(state="PROGRESS", meta={"step": "fetching_document_info"})
+        # Create progress callback for worker
+        progress_callback = CeleryProgressCallback(self)
 
-        # Get document information
-        document_data = run_async(_get_document_info(document_id))
-        if not document_data:
-            raise ValueError(f"Document with id {document_id} not found")
+        # Create worker with database session
+        async def _execute_worker():
+            async with get_db_context() as session:
+                worker = ScrapingWorker(session, progress_callback)
+                return await worker.download_pdf(document_id)
 
-        url = document_data["url"]
-        company_id = document_data["company_id"]
-        fiscal_year = document_data["fiscal_year"]
+        result = run_async(_execute_worker())
 
-        logger.info(f"Downloading PDF from: {url}", extra={"task_id": task_id, "document_id": document_id})
-
-        # Update task state
-        self.update_state(state="PROGRESS", meta={"step": "downloading_file"})
-
-        # Download PDF
-        file_path, file_hash = run_async(_download_pdf_file(url, company_id, fiscal_year))
-
-        # Update task state
-        self.update_state(state="PROGRESS", meta={"step": "updating_database"})
-
-        # Update document record with file path
-        run_async(_update_document_file_path(document_id, str(file_path)))
-
-        result = {
-            "task_id": task_id,
-            "document_id": document_id,
-            "status": "success",
-            "file_path": str(file_path),
-            "file_hash": file_hash,
-        }
+        # Add task_id to result for consistency
+        result["task_id"] = task_id
 
         validate_task_result(result, ["task_id", "document_id", "status", "file_path"])
-        logger.info(f"Completed download_pdf task", extra={"task_id": task_id, "result": result})
+        logger.info(
+            "Completed download_pdf task",
+            extra={"task_id": task_id, "result": result},
+        )
 
         return result
 
@@ -251,40 +196,31 @@ def classify_document(self: Task, document_id: int) -> dict[str, Any]:
         ValueError: If document not found or classification fails.
     """
     task_id = self.request.id
-    logger.info(f"Starting classify_document task", extra={"task_id": task_id, "document_id": document_id})
+    logger.info(
+        "Starting classify_document task",
+        extra={"task_id": task_id, "document_id": document_id},
+    )
 
     try:
-        # Update task state
-        self.update_state(state="PROGRESS", meta={"step": "fetching_document_info"})
+        # Create progress callback for worker
+        progress_callback = CeleryProgressCallback(self)
 
-        # Get document information
-        document_data = run_async(_get_document_info(document_id))
-        if not document_data:
-            raise ValueError(f"Document with id {document_id} not found")
+        # Create worker with database session
+        async def _execute_worker():
+            async with get_db_context() as session:
+                worker = ScrapingWorker(session, progress_callback)
+                return await worker.classify_document(document_id)
 
-        # Update task state
-        self.update_state(state="PROGRESS", meta={"step": "analyzing_document"})
+        result = run_async(_execute_worker())
 
-        # Classify document
-        # TODO: Implement actual classification logic
-        # This should use filename patterns, URL patterns, and optionally content sampling
-        document_type = run_async(_classify_document_type(document_data))
-
-        # Update task state
-        self.update_state(state="PROGRESS", meta={"step": "updating_database"})
-
-        # Update document record with classification
-        run_async(_update_document_type(document_id, document_type))
-
-        result = {
-            "task_id": task_id,
-            "document_id": document_id,
-            "status": "success",
-            "document_type": document_type,
-        }
+        # Add task_id to result for consistency
+        result["task_id"] = task_id
 
         validate_task_result(result, ["task_id", "document_id", "status", "document_type"])
-        logger.info(f"Completed classify_document task", extra={"task_id": task_id, "result": result})
+        logger.info(
+            "Completed classify_document task",
+            extra={"task_id": task_id, "result": result},
+        )
 
         return result
 
@@ -295,205 +231,3 @@ def classify_document(self: Task, document_id: int) -> dict[str, Any]:
             exc_info=True,
         )
         raise
-
-
-# Helper functions (async)
-
-async def _get_company_info(company_id: int) -> dict[str, Any] | None:
-    """Get company information from database."""
-    async with get_db_context() as pool:
-        repo = CompanyRepository(pool)
-        return await repo.get_by_id(company_id)
-
-
-async def _get_document_info(document_id: int) -> dict[str, Any] | None:
-    """Get document information from database."""
-    async with get_db_context() as pool:
-        repo = DocumentRepository(pool)
-        return await repo.get_by_id(document_id)
-
-
-async def _discover_pdf_urls(ir_url: str, openai_api_key: str | None = None) -> list[dict[str, Any]]:
-    """Discover PDF URLs from investor relations website using Crawl4AI.
-
-    Uses Crawl4AI's LLM extraction capabilities to intelligently discover
-    PDF documents from investor relations websites, handling JavaScript-rendered
-    content and complex page structures.
-
-    Args:
-        ir_url: Investor relations website URL.
-        openai_api_key: Optional OpenAI API key for LLM extraction.
-            If not provided, falls back to CSS/XPath extraction.
-
-    Returns:
-        List of dictionaries with URL, filename, fiscal_year, document_type, and metadata.
-
-    Raises:
-        Exception: If scraping fails.
-    """
-    logger.info(
-        f"Starting PDF discovery for {ir_url}",
-        extra={"url": ir_url, "use_llm": openai_api_key is not None},
-    )
-
-    try:
-        # Use Crawl4AI scraping service
-        async with ScrapingService(openai_api_key=openai_api_key) as service:
-            # Discover PDFs (use LLM if API key available, otherwise CSS fallback)
-            use_llm = openai_api_key is not None
-            discovered_pdfs = await service.discover_pdf_urls(ir_url, use_llm=use_llm)
-
-            # Convert DiscoveredPDF objects to dictionaries
-            pdf_dicts = []
-            for pdf in discovered_pdfs:
-                pdf_dicts.append({
-                    "url": pdf.url,
-                    "filename": pdf.filename,
-                    "fiscal_year": pdf.fiscal_year,
-                    "document_type": pdf.document_type,
-                    "title": pdf.title,
-                    "description": pdf.description,
-                    "confidence": pdf.confidence,
-                })
-
-            logger.info(
-                f"Successfully discovered {len(pdf_dicts)} PDFs from {ir_url}",
-                extra={"url": ir_url, "count": len(pdf_dicts)},
-            )
-
-            return pdf_dicts
-
-    except Exception as e:
-        logger.error(
-            f"Failed to discover PDFs from {ir_url}: {e}",
-            exc_info=True,
-            extra={"url": ir_url},
-        )
-        # Re-raise to allow Celery retry logic
-        raise
-
-
-async def _create_document_records(company_id: int, urls: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Create document records in database for discovered URLs."""
-    created_documents = []
-    async with get_db_context() as pool:
-        repo = DocumentRepository(pool)
-        for url_data in urls:
-            # Extract fiscal year from URL or metadata if available
-            fiscal_year = url_data.get("fiscal_year", 2024)  # Default fallback
-            document_type = url_data.get("document_type", "unknown")
-
-            document = await repo.create(
-                company_id=company_id,
-                url=url_data["url"],
-                fiscal_year=fiscal_year,
-                document_type=document_type,
-                file_path=None,
-            )
-            if document:
-                created_documents.append(document)
-    return created_documents
-
-
-async def _download_pdf_file(url: str, company_id: int, fiscal_year: int) -> tuple[Path, str]:
-    """Download PDF file and store locally.
-
-    Args:
-        url: URL of the PDF to download.
-        company_id: Company ID for storage path.
-        fiscal_year: Fiscal year for storage path.
-
-    Returns:
-        Tuple of (file_path, file_hash).
-
-    Raises:
-        httpx.HTTPStatusError: If download fails.
-    """
-    # Add polite delay before download
-    await asyncio.sleep(1.0)
-
-    async with httpx.AsyncClient(
-        timeout=httpx.Timeout(120.0, connect=10.0),
-        headers=DEFAULT_HEADERS,
-        follow_redirects=True,
-        max_redirects=5,
-    ) as client:
-        response = await client.get(url)
-
-        # Handle 403 Forbidden
-        if response.status_code == 403:
-            logger.warning(
-                f"Got 403 Forbidden when downloading PDF from {url}",
-                extra={"url": url, "company_id": company_id},
-            )
-            raise httpx.HTTPStatusError(
-                "403 Forbidden - PDF download blocked",
-                request=response.request,
-                response=response,
-            )
-
-        response.raise_for_status()
-
-        # Extract filename from URL or Content-Disposition header
-        filename = url.split("/")[-1] or "document.pdf"
-        if not filename.endswith(".pdf"):
-            filename = f"{filename}.pdf"
-
-        # Get storage path
-        file_path = get_pdf_storage_path(company_id, fiscal_year, filename)
-
-        # Save file
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(file_path, "wb") as f:
-            f.write(response.content)
-
-        # Calculate hash
-        file_hash = calculate_file_hash(file_path)
-
-        return file_path, file_hash
-
-
-async def _update_document_file_path(document_id: int, file_path: str) -> None:
-    """Update document record with file path."""
-    async with get_db_context() as pool:
-        repo = DocumentRepository(pool)
-        # Use execute_update directly for file_path update
-        query = "UPDATE documents SET file_path = %(file_path)s WHERE id = %(document_id)s"
-        await repo.execute_update(query, {"file_path": file_path, "document_id": document_id})
-
-
-async def _classify_document_type(document_data: dict[str, Any]) -> str:
-    """Classify document type based on URL, filename, and content.
-
-    TODO: Implement actual classification logic.
-    Should check:
-    - Filename patterns (annual, quarterly, presentation, etc.)
-    - URL patterns
-    - Optionally sample PDF content
-
-    Args:
-        document_data: Document information dictionary.
-
-    Returns:
-        Document type string.
-    """
-    url = document_data.get("url", "").lower()
-    file_path = document_data.get("file_path", "").lower()
-
-    # Simple classification based on keywords
-    if any(keyword in url or keyword in file_path for keyword in ["annual", "ar", "year"]):
-        return "annual_report"
-    elif any(keyword in url or keyword in file_path for keyword in ["quarterly", "q", "quarter"]):
-        return "quarterly_report"
-    elif any(keyword in url or keyword in file_path for keyword in ["presentation", "investor"]):
-        return "investor_presentation"
-    else:
-        return "unknown"
-
-
-async def _update_document_type(document_id: int, document_type: str) -> None:
-    """Update document record with document type."""
-    async with get_db_context() as pool:
-        repo = DocumentRepository(pool)
-        query = "UPDATE documents SET document_type = %(document_type)s WHERE id = %(document_id)s"
-        await repo.execute_update(query, {"document_type": document_type, "document_id": document_id})

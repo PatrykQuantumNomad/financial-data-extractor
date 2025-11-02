@@ -14,60 +14,11 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from config import Settings
-from psycopg.rows import dict_row
-from psycopg_pool import AsyncConnectionPool
-from psycopg_pool import ConnectionPool as SyncConnectionPool
-from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
-                      wait_exponential)
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+
+from app.db.base import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
-
-# Global connection pool for Celery tasks
-_db_pool: AsyncConnectionPool | None = None
-
-
-def get_db_pool() -> AsyncConnectionPool:
-    """Get or create database connection pool for Celery tasks.
-
-    Returns:
-        AsyncConnectionPool instance.
-
-    Raises:
-        RuntimeError: If database pool cannot be created.
-    """
-    global _db_pool
-
-    if _db_pool is None:
-        try:
-            settings = Settings()
-            database_url = settings.database_url
-
-            # Create pool with open=False to avoid requiring event loop at creation time
-            # The pool will be opened lazily when first used in an async context
-            _db_pool = AsyncConnectionPool(
-                conninfo=database_url,  # Use postgresql:// URL directly
-                min_size=2,  # Minimum connections in pool
-                max_size=10,  # Maximum connections in pool
-                open=False,  # Don't open immediately - open lazily when first used
-                timeout=30,  # Wait timeout for getting connection from pool
-                max_waiting=10,  # Max clients waiting for connection
-                kwargs={
-                    "autocommit": True,
-                    "row_factory": dict_row,  # Return rows as dicts
-                },
-            )
-
-            logger.info(
-                f"Database connection pool created for Celery tasks "
-                f"(min={_db_pool.min_size}, max={_db_pool.max_size}, will open lazily)"
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to create database pool: {e}", exc_info=True)
-            raise RuntimeError(f"Failed to create database pool: {e}") from e
-
-    return _db_pool
 
 
 def run_async(coro: Any) -> Any:
@@ -99,21 +50,16 @@ async def get_db_context():
     """Async context manager for database operations in tasks.
 
     Yields:
-        AsyncConnectionPool instance.
+        AsyncSession instance for database operations.
     """
-    pool = get_db_pool()
-
-    # Ensure pool is open - open it if closed (lazy opening)
-    if pool.closed:
-        logger.info("Opening database connection pool...")
-        await pool.open()
-
-    try:
-        yield pool
-    except Exception as e:
-        logger.error(f"Database operation failed: {e}", exc_info=True)
-        # Don't close the pool on error - let it handle reconnection
-        raise
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception as e:
+            logger.error(f"Database operation failed: {e}", exc_info=True)
+            await session.rollback()
+            raise
 
 
 def calculate_file_hash(file_path: str | Path) -> str:

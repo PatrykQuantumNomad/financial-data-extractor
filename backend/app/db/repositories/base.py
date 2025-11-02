@@ -5,133 +5,90 @@ Author: Patryk Golabek
 Copyright: 2025 Patryk Golabek
 """
 
-from typing import Any
+from typing import Any, TypeVar
 
-from psycopg_pool import AsyncConnectionPool
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.base import AsyncSessionLocal
+
+T = TypeVar("T", bound=BaseModel)
 
 
 class BaseRepository:
-    """Base repository providing common database operations using async connection pool."""
+    """Base repository providing common database operations using async SQLAlchemy sessions."""
 
-    def __init__(self, db_pool: AsyncConnectionPool):
-        """Initialize repository with database connection pool.
+    def __init__(self, session: AsyncSession | None = None):
+        """Initialize repository with database session.
 
         Args:
-            db_pool: Async connection pool for database operations.
+            session: Optional async session. If None, creates a new session.
         """
-        self.db_pool = db_pool
+        self._session = session
+        self._session_owned = session is None
 
-    async def execute_query(
-        self, query: str, params: tuple[Any, ...] | dict[str, Any] | None = None
-    ) -> list[dict[str, Any]]:
-        """Execute a SELECT query and return results as list of dictionaries.
+    @property
+    def session(self) -> AsyncSession:
+        """Get or create async session."""
+        if self._session is None:
+            self._session = AsyncSessionLocal()
+        return self._session
+
+    async def close(self) -> None:
+        """Close the session if we own it."""
+        if self._session_owned and self._session is not None:
+            await self._session.close()
+            self._session = None
+
+    def _model_to_schema(self, model: Any, schema_class: type[T]) -> T:
+        """Convert SQLAlchemy model to Pydantic schema.
 
         Args:
-            query: SQL query string with placeholders.
-            params: Query parameters (tuple for positional, dict for named).
+            model: SQLAlchemy model instance.
+            schema_class: Pydantic schema class with from_attributes=True.
 
         Returns:
-            List of dictionaries representing rows.
-        """
-        async with self.db_pool.connection() as conn:
-            async with conn.cursor() as cur:
-                if params:
-                    await cur.execute(query, params)
-                else:
-                    await cur.execute(query)
-                rows = await cur.fetchall()
-                return list(rows)
+            Pydantic schema instance.
 
-    async def execute_one(
-        self, query: str, params: tuple[Any, ...] | dict[str, Any] | None = None
-    ) -> dict[str, Any] | None:
-        """Execute a SELECT query and return single row as dictionary.
+        Raises:
+            ValueError: If model is None.
+        """
+        if model is None:
+            raise ValueError("Cannot convert None to schema")
+        return schema_class.model_validate(model)
+
+    async def _handle_db_operation(self, operation_name: str) -> None:
+        """Handle database operations and translate SQLAlchemy exceptions.
+
+        This is a context manager helper that can be used to wrap database operations.
+        For now, we'll rely on individual methods to catch and translate exceptions.
 
         Args:
-            query: SQL query string with placeholders.
-            params: Query parameters (tuple for positional, dict for named).
+            operation_name: Name of the operation being performed.
 
-        Returns:
-            Dictionary representing a single row, or None if no row found.
+        Raises:
+            DatabaseIntegrityError: If integrity constraint is violated.
+            DatabaseConnectionError: If connection fails.
+            DatabaseTransactionError: If transaction fails.
         """
-        async with self.db_pool.connection() as conn:
-            async with conn.cursor() as cur:
-                if params:
-                    await cur.execute(query, params)
-                else:
-                    await cur.execute(query)
-                row = await cur.fetchone()
-                return dict(row) if row else None
+        # This method is a placeholder for future use if we want to
+        # add automatic exception translation at the base level
+        pass
 
-    async def execute_insert(
-        self,
-        query: str,
-        params: tuple[Any, ...] | dict[str, Any] | None = None,
-        returning: str = "id",
-    ) -> Any | None:
-        """Execute an INSERT query and return the ID of the inserted row.
+    async def _model_to_dict(self, model: Any) -> dict[str, Any]:
+        """Convert SQLAlchemy model to dictionary.
 
         Args:
-            query: SQL INSERT query string with placeholders.
-            params: Query parameters (tuple for positional, dict for named).
-            returning: Column name to return (default: 'id').
+            model: SQLAlchemy model instance.
 
         Returns:
-            Value of the returned column (typically ID), or None if not found.
+            Dictionary representation of the model.
         """
-        # Check if query already has RETURNING clause
-        if "RETURNING" in query.upper():
-            query_with_returning = query
-        else:
-            query_with_returning = f"{query} RETURNING {returning}"
-
-        async with self.db_pool.connection() as conn:
-            async with conn.cursor() as cur:
-                if params:
-                    await cur.execute(query_with_returning, params)
-                else:
-                    await cur.execute(query_with_returning)
-                result = await cur.fetchone()
-                if result and returning in result:
-                    return result[returning]
-                return result if result else None
-
-    async def execute_update(
-        self, query: str, params: tuple[Any, ...] | dict[str, Any] | None = None
-    ) -> int:
-        """Execute an UPDATE query and return number of affected rows.
-
-        Args:
-            query: SQL UPDATE query string with placeholders.
-            params: Query parameters (tuple for positional, dict for named).
-
-        Returns:
-            Number of rows affected.
-        """
-        async with self.db_pool.connection() as conn:
-            async with conn.cursor() as cur:
-                if params:
-                    await cur.execute(query, params)
-                else:
-                    await cur.execute(query)
-                return cur.rowcount
-
-    async def execute_delete(
-        self, query: str, params: tuple[Any, ...] | dict[str, Any] | None = None
-    ) -> int:
-        """Execute a DELETE query and return number of affected rows.
-
-        Args:
-            query: SQL DELETE query string with placeholders.
-            params: Query parameters (tuple for positional, dict for named).
-
-        Returns:
-            Number of rows affected.
-        """
-        async with self.db_pool.connection() as conn:
-            async with conn.cursor() as cur:
-                if params:
-                    await cur.execute(query, params)
-                else:
-                    await cur.execute(query)
-                return cur.rowcount
+        result = {}
+        for column in model.__table__.columns:
+            value = getattr(model, column.name)
+            # Handle datetime serialization
+            if hasattr(value, "isoformat"):
+                value = value.isoformat()
+            result[column.name] = value
+        return result

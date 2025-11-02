@@ -5,14 +5,14 @@ Author: Patryk Golabek
 Copyright: 2025 Patryk Golabek
 """
 
-from typing import Any
-
 from fastapi import HTTPException, status
 
+from app.db.models.extraction import CompiledStatement
 from app.db.repositories.company import CompanyRepository
 from app.db.repositories.compiled_statement import CompiledStatementRepository
 from app.schemas.extraction import (
     CompiledStatementCreate,
+    CompiledStatementResponse,
     CompiledStatementUpdate,
 )
 
@@ -34,46 +34,48 @@ class CompiledStatementService:
         self.compiled_statement_repository = compiled_statement_repository
         self.company_repository = company_repository
 
+    def _model_to_response(
+        self, compiled_statement: CompiledStatement
+    ) -> CompiledStatementResponse:
+        """Convert CompiledStatement model to CompiledStatementResponse schema.
+
+        Args:
+            compiled_statement: CompiledStatement model instance.
+
+        Returns:
+            CompiledStatementResponse schema instance.
+        """
+        return CompiledStatementResponse.model_validate(compiled_statement)
+
     async def create_compiled_statement(
         self, compiled_statement_data: CompiledStatementCreate
-    ) -> dict[str, Any]:
+    ) -> CompiledStatementResponse:
         """Create a new compiled statement.
 
         Args:
             compiled_statement_data: Compiled statement creation data.
 
         Returns:
-            Dictionary representing the created compiled statement.
+            CompiledStatementResponse representing the created compiled statement.
 
         Raises:
             HTTPException: If company not found or creation fails.
         """
         # Verify company exists
-        company = await self.company_repository.get_by_id(
-            compiled_statement_data.company_id
-        )
+        company = await self.company_repository.get_by_id(compiled_statement_data.company_id)
         if not company:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=(
-                    f"Company with id {compiled_statement_data.company_id} not found"
-                ),
+                detail=(f"Company with id {compiled_statement_data.company_id} not found"),
             )
 
         try:
-            compiled_statement = (
-                await self.compiled_statement_repository.upsert(
-                    company_id=compiled_statement_data.company_id,
-                    statement_type=compiled_statement_data.statement_type,
-                    data=compiled_statement_data.data,
-                )
+            compiled_statement = await self.compiled_statement_repository.upsert(
+                company_id=compiled_statement_data.company_id,
+                statement_type=compiled_statement_data.statement_type,
+                data=compiled_statement_data.data,
             )
-            if not compiled_statement:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to create compiled statement",
-                )
-            return compiled_statement
+            return self._model_to_response(compiled_statement)
         except HTTPException:
             raise
         except Exception as e:
@@ -82,44 +84,38 @@ class CompiledStatementService:
                 detail=f"Error creating compiled statement: {str(e)}",
             ) from e
 
-    async def get_compiled_statement(
-        self, compiled_statement_id: int
-    ) -> dict[str, Any]:
+    async def get_compiled_statement(self, compiled_statement_id: int) -> CompiledStatementResponse:
         """Get compiled statement by ID.
 
         Args:
             compiled_statement_id: Compiled statement ID.
 
         Returns:
-            Dictionary representing the compiled statement.
+            CompiledStatementResponse representing the compiled statement.
 
         Raises:
             HTTPException: If compiled statement not found.
         """
-        compiled_statement = (
-            await self.compiled_statement_repository.get_by_id(
-                compiled_statement_id
-            )
+        compiled_statement = await self.compiled_statement_repository.get_by_id(
+            compiled_statement_id
         )
         if not compiled_statement:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=(
-                    f"Compiled statement with id {compiled_statement_id} not found"
-                ),
+                detail=(f"Compiled statement with id {compiled_statement_id} not found"),
             )
-        return compiled_statement
+        return self._model_to_response(compiled_statement)
 
     async def get_compiled_statements_by_company(
         self, company_id: int
-    ) -> list[dict[str, Any]]:
+    ) -> list[CompiledStatementResponse]:
         """Get all compiled statements for a company.
 
         Args:
             company_id: Company ID.
 
         Returns:
-            List of dictionaries representing compiled statements.
+            List of CompiledStatementResponse representing compiled statements.
 
         Raises:
             HTTPException: If company not found.
@@ -132,11 +128,12 @@ class CompiledStatementService:
                 detail=f"Company with id {company_id} not found",
             )
 
-        return await self.compiled_statement_repository.get_by_company(company_id)
+        compiled_statements = await self.compiled_statement_repository.get_by_company(company_id)
+        return [self._model_to_response(stmt) for stmt in compiled_statements]
 
     async def get_compiled_statement_by_company_and_type(
         self, company_id: int, statement_type: str
-    ) -> dict[str, Any]:
+    ) -> CompiledStatementResponse:
         """Get compiled statement by company and statement type.
 
         Args:
@@ -144,7 +141,7 @@ class CompiledStatementService:
             statement_type: Type of financial statement.
 
         Returns:
-            Dictionary representing the compiled statement.
+            CompiledStatementResponse representing the compiled statement.
 
         Raises:
             HTTPException: If company or compiled statement not found.
@@ -157,10 +154,8 @@ class CompiledStatementService:
                 detail=f"Company with id {company_id} not found",
             )
 
-        compiled_statement = (
-            await self.compiled_statement_repository.get_by_company_and_type(
-                company_id, statement_type
-            )
+        compiled_statement = await self.compiled_statement_repository.get_by_company_and_type(
+            company_id, statement_type
         )
         if not compiled_statement:
             raise HTTPException(
@@ -170,13 +165,13 @@ class CompiledStatementService:
                     f"and statement_type {statement_type} not found"
                 ),
             )
-        return compiled_statement
+        return self._model_to_response(compiled_statement)
 
     async def update_compiled_statement(
         self,
         compiled_statement_id: int,
         compiled_statement_data: CompiledStatementUpdate,
-    ) -> dict[str, Any]:
+    ) -> CompiledStatementResponse:
         """Update a compiled statement.
 
         Args:
@@ -184,36 +179,30 @@ class CompiledStatementService:
             compiled_statement_data: Compiled statement update data.
 
         Returns:
-            Dictionary representing the updated compiled statement.
+            CompiledStatementResponse representing the updated compiled statement.
 
         Raises:
             HTTPException: If compiled statement not found or update fails.
         """
         # Check if compiled statement exists
-        existing = await self.compiled_statement_repository.get_by_id(
-            compiled_statement_id
-        )
+        existing = await self.compiled_statement_repository.get_by_id(compiled_statement_id)
         if not existing:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=(
-                    f"Compiled statement with id {compiled_statement_id} not found"
-                ),
+                detail=(f"Compiled statement with id {compiled_statement_id} not found"),
             )
 
         try:
-            compiled_statement = (
-                await self.compiled_statement_repository.update(
-                    compiled_statement_id=compiled_statement_id,
-                    data=compiled_statement_data.data,
-                )
+            compiled_statement = await self.compiled_statement_repository.update(
+                compiled_statement_id=compiled_statement_id,
+                data=compiled_statement_data.data,
             )
             if not compiled_statement:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Failed to update compiled statement",
                 )
-            return compiled_statement
+            return self._model_to_response(compiled_statement)
         except HTTPException:
             raise
         except Exception as e:
@@ -224,44 +213,33 @@ class CompiledStatementService:
 
     async def upsert_compiled_statement(
         self, compiled_statement_data: CompiledStatementCreate
-    ) -> dict[str, Any]:
+    ) -> CompiledStatementResponse:
         """Insert or update a compiled statement.
 
         Args:
             compiled_statement_data: Compiled statement data.
 
         Returns:
-            Dictionary representing the compiled statement.
+            CompiledStatementResponse representing the compiled statement.
 
         Raises:
             HTTPException: If company not found or upsert fails.
         """
         # Verify company exists
-        company = await self.company_repository.get_by_id(
-            compiled_statement_data.company_id
-        )
+        company = await self.company_repository.get_by_id(compiled_statement_data.company_id)
         if not company:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=(
-                    f"Company with id {compiled_statement_data.company_id} not found"
-                ),
+                detail=(f"Company with id {compiled_statement_data.company_id} not found"),
             )
 
         try:
-            compiled_statement = (
-                await self.compiled_statement_repository.upsert(
-                    company_id=compiled_statement_data.company_id,
-                    statement_type=compiled_statement_data.statement_type,
-                    data=compiled_statement_data.data,
-                )
+            compiled_statement = await self.compiled_statement_repository.upsert(
+                company_id=compiled_statement_data.company_id,
+                statement_type=compiled_statement_data.statement_type,
+                data=compiled_statement_data.data,
             )
-            if not compiled_statement:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to upsert compiled statement",
-                )
-            return compiled_statement
+            return self._model_to_response(compiled_statement)
         except HTTPException:
             raise
         except Exception as e:
@@ -270,9 +248,7 @@ class CompiledStatementService:
                 detail=f"Error upserting compiled statement: {str(e)}",
             ) from e
 
-    async def delete_compiled_statement(
-        self, compiled_statement_id: int
-    ) -> None:
+    async def delete_compiled_statement(self, compiled_statement_id: int) -> None:
         """Delete a compiled statement by ID.
 
         Args:
@@ -282,20 +258,14 @@ class CompiledStatementService:
             HTTPException: If compiled statement not found or deletion fails.
         """
         # Check if compiled statement exists
-        existing = await self.compiled_statement_repository.get_by_id(
-            compiled_statement_id
-        )
+        existing = await self.compiled_statement_repository.get_by_id(compiled_statement_id)
         if not existing:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=(
-                    f"Compiled statement with id {compiled_statement_id} not found"
-                ),
+                detail=(f"Compiled statement with id {compiled_statement_id} not found"),
             )
 
-        deleted = await self.compiled_statement_repository.delete(
-            compiled_statement_id
-        )
+        deleted = await self.compiled_statement_repository.delete(compiled_statement_id)
         if not deleted:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

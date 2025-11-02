@@ -50,7 +50,7 @@ class TestRequestIDMiddleware:
         # Arrange - already set up
 
         # Act
-        response = await middleware.dispatch(mock_request, mock_call_next)
+        await middleware.dispatch(mock_request, mock_call_next)
 
         # Assert
         assert hasattr(mock_request.state, "request_id")
@@ -65,7 +65,7 @@ class TestRequestIDMiddleware:
         # Arrange - already set up
 
         # Act
-        response = await middleware.dispatch(mock_request, mock_call_next)
+        await middleware.dispatch(mock_request, mock_call_next)
 
         # Assert
         request_id = mock_request.state.request_id
@@ -130,6 +130,7 @@ class TestTimeoutMiddleware:
         """Test that response is returned when request completes within timeout."""
         # Arrange
         mock_response = MagicMock()
+
         async def mock_call_next(request):
             return mock_response
 
@@ -144,6 +145,7 @@ class TestTimeoutMiddleware:
         self, middleware: TimeoutMiddleware, mock_request: MagicMock
     ):
         """Test that 504 is returned when request times out."""
+
         # Arrange
         async def slow_call_next(request):
             await asyncio.sleep(2)  # Exceed 1 second timeout
@@ -160,6 +162,7 @@ class TestTimeoutMiddleware:
         self, middleware: TimeoutMiddleware, mock_request: MagicMock
     ):
         """Test that timeout response has detail message."""
+
         # Arrange
         async def slow_call_next(request):
             await asyncio.sleep(2)  # Exceed 1 second timeout
@@ -170,6 +173,7 @@ class TestTimeoutMiddleware:
 
         # Assert
         import json
+
         body = json.loads(response.body.decode())
         assert "detail" in body
         assert "timed out" in body["detail"].lower()

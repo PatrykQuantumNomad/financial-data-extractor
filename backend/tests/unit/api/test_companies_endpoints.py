@@ -9,8 +9,6 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from app.schemas.company import CompanyCreate, CompanyUpdate
-
 
 @pytest.mark.unit
 class TestCompaniesEndpoints:
@@ -113,18 +111,17 @@ class TestCompaniesEndpoints:
         assert data["name"] == "Test Company"
         mock_company_service.get_company.assert_called_once_with(1)
 
-    def test_get_company_by_id_not_found(
-        self, test_client: TestClient, mock_company_service
-    ):
+    def test_get_company_by_id_not_found(self, test_client: TestClient, mock_company_service):
         """Test retrieval of non-existent company."""
         # Arrange
-        from app.core.exceptions.custom_exceptions import JSONFileNotFoundError
+        from app.core.exceptions.api_exceptions import JSONFileNotFoundError
+
         mock_company_service.get_company.side_effect = JSONFileNotFoundError(
             filename="company_999.json"
         )
 
         # Act
-        response = test_client.get("/companies/999")
+        test_client.get("/companies/999")
 
         # Assert
         # The error will be handled by the middleware, check that service was called
@@ -146,18 +143,17 @@ class TestCompaniesEndpoints:
         assert data["primary_ticker"] == "TEST"
         mock_company_service.get_company_by_ticker.assert_called_once_with("TEST")
 
-    def test_get_company_by_ticker_not_found(
-        self, test_client: TestClient, mock_company_service
-    ):
+    def test_get_company_by_ticker_not_found(self, test_client: TestClient, mock_company_service):
         """Test retrieval of company with non-existent ticker."""
         # Arrange
-        from app.core.exceptions.custom_exceptions import JSONFileNotFoundError
+        from app.core.exceptions.api_exceptions import JSONFileNotFoundError
+
         mock_company_service.get_company_by_ticker.side_effect = JSONFileNotFoundError(
             filename="company_XYZ.json"
         )
 
         # Act
-        response = test_client.get("/companies/ticker/XYZ")
+        test_client.get("/companies/ticker/XYZ")
 
         # Assert
         mock_company_service.get_company_by_ticker.assert_called_once_with("XYZ")
@@ -167,8 +163,7 @@ class TestCompaniesEndpoints:
     ):
         """Test successful company update."""
         # Arrange
-        updated_data = sample_company_data.copy()
-        updated_data["name"] = "Updated Company Name"
+        updated_data = sample_company_data.model_copy(update={"name": "Updated Company Name"})
         mock_company_service.update_company.return_value = updated_data
         update_data = {"name": "Updated Company Name"}
 
@@ -196,9 +191,7 @@ class TestCompaniesEndpoints:
         assert response.status_code == status.HTTP_200_OK
         mock_company_service.update_company.assert_called_once()
 
-    def test_delete_company_success(
-        self, test_client: TestClient, mock_company_service
-    ):
+    def test_delete_company_success(self, test_client: TestClient, mock_company_service):
         """Test successful company deletion."""
         # Arrange
         mock_company_service.delete_company.return_value = None
@@ -213,13 +206,14 @@ class TestCompaniesEndpoints:
     def test_delete_company_not_found(self, test_client: TestClient, mock_company_service):
         """Test deletion of non-existent company."""
         # Arrange
-        from app.core.exceptions.custom_exceptions import JSONFileNotFoundError
+        from app.core.exceptions.api_exceptions import JSONFileNotFoundError
+
         mock_company_service.delete_company.side_effect = JSONFileNotFoundError(
             filename="company_999.json"
         )
 
         # Act
-        response = test_client.delete("/companies/999")
+        test_client.delete("/companies/999")
 
         # Assert
         mock_company_service.delete_company.assert_called_once_with(999)
@@ -241,11 +235,14 @@ class TestCompaniesEndpoints:
     ):
         """Test company creation with multiple tickers."""
         # Arrange
-        company_response = sample_company_data.copy()
-        company_response["tickers"] = [
-            {"exchange": "NYSE", "symbol": "TEST"},
-            {"exchange": "NASDAQ", "symbol": "TST"},
-        ]
+        company_response = sample_company_data.model_copy(
+            update={
+                "tickers": [
+                    {"exchange": "NYSE", "symbol": "TEST"},
+                    {"exchange": "NASDAQ", "symbol": "TST"},
+                ]
+            }
+        )
         mock_company_service.create_company.return_value = company_response
         company_data = {
             "name": "Test Company",

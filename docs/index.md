@@ -44,9 +44,27 @@ graph TB
     subgraph "API Layer"
         B[FastAPI Backend]
         B1[REST API Endpoints]
-        B2[Business Logic]
+        B2[API Exception Handler]
+        B3[Problem Details RFC 7807]
         B --> B1
-        B --> B2
+        B1 --> B2
+        B2 --> B3
+    end
+
+    subgraph "Service Layer"
+        S1[Business Logic Services]
+        S2[Service Exceptions]
+        S3[Exception Translators]
+        S1 --> S2
+        S2 --> S3
+        S3 --> B2
+    end
+
+    subgraph "Repository Layer"
+        R1[Database Repositories]
+        R2[DB Exceptions]
+        R1 --> R2
+        R2 --> S3
     end
 
     subgraph "Processing Layer"
@@ -69,7 +87,10 @@ graph TB
         G[File Storage - PDFs]
     end
 
-    A -->|REST API| B
+    A -->|REST API| B1
+    B1 --> S1
+    S1 --> R1
+    R1 --> D
     B -->|Queue Tasks| C
     B -->|Store Data| D
     B -->|Cache & Broker| E
@@ -84,12 +105,16 @@ graph TB
 
     classDef frontend fill:#e1f5ff,stroke:#01579b,stroke-width:2px
     classDef api fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef service fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    classDef repository fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
     classDef processing fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
     classDef data fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
     classDef external fill:#fce4ec,stroke:#880e4f,stroke-width:2px
 
     class A,A1,A2,A3 frontend
-    class B,B1,B2 api
+    class B,B1,B2,B3 api
+    class S1,S2,S3 service
+    class R1,R2 repository
     class C,W1,W2,W3 processing
     class D,E data
     class F,G external
@@ -175,7 +200,7 @@ graph TB
 3. **Monitoring**: Flower dashboard for task tracking
 4. **Workflows**: Complex pipelines (scrape → classify → extract → compile)
 
-See [Task Processing Documentation](task-processing.md) for complete details on the Celery task system, Flower monitoring, and task management.
+See [Task Processing Documentation](infrastructure/tasks.md) for complete details on the Celery task system, Flower monitoring, and task management.
 
 ## Technology Stack
 
@@ -277,36 +302,42 @@ See the [Backend README](../backend/README.md) for detailed setup instructions a
 
 ## Documentation
 
-This documentation site provides comprehensive guides for:
+This documentation site provides comprehensive guides organized by category:
 
-### API Reference
+### Backend
 
-- **[API Reference](api-reference)** - Complete REST API documentation with all endpoints, request/response formats, and examples
+- **[Backend Overview](backend/)** - FastAPI backend architecture, database, services, and testing
+  - **[Database Architecture](backend/database.md)** - Connection pool management, dependency injection, repository pattern, and exception handling
+  - **[Backend Testing](backend/testing.md)** - pytest setup, unit tests, integration tests with testcontainers
 
-### Database & Infrastructure
+### Frontend
 
-- **[Database Schema](database-schema)** - Table structures, relationships, and JSONB formats
-- **[Database Migrations](database-migrations)** - Alembic migration commands and workflows
-- **[Database Queries](database-queries)** - Useful SQL queries for data inspection
-- **[Infrastructure Development Setup](infrastructure-development)** - Docker Compose setup and service management
+- **[Frontend Overview](frontend/)** - Next.js 15 frontend architecture, components, React Query, and testing
+  - **[Frontend Architecture](frontend/architecture.md)** - Next.js 15 architecture, React Query, components, and development guide
+  - **[Frontend Testing](frontend/testing.md)** - Vitest unit testing, React Testing Library, and testing strategies
+  - **[Frontend DevTools](frontend/devtools.md)** - React Query DevTools, ESLint plugin, and frontend debugging tools
 
-### Development
+### Database
 
-- **Backend Development** - FastAPI setup, database models, API endpoints
-- **[Backend Testing](backend-testing)** - pytest setup, unit tests, fixtures, and coverage
-- **[Frontend Architecture](frontend-architecture)** - Next.js 15 architecture, React Query, components, and development guide
-- **[Frontend DevTools](frontend-devtools)** - React Query DevTools, ESLint plugin, and frontend debugging tools
-- **[Frontend Testing](frontend-testing)** - Vitest unit testing, React Testing Library, and testing strategies
+- **[Database Overview](database/)** - Database schema, migrations, queries, and operations
+  - **[Database Schema](database/schema.md)** - Table structures, relationships, and JSONB formats
+  - **[Database Migrations](database/migrations.md)** - Alembic migration commands and workflows
+  - **[Database Queries](database/queries.md)** - Useful SQL queries for data inspection
 
-### Processing & Data
+### API
 
-- **PDF Processing** - Scraping, classification, and extraction workflows
-- **Financial Normalization** - Line item matching and multi-year compilation
+- **[API Overview](api/)** - REST API documentation and reference
+  - **[API Reference](api/reference.md)** - Complete REST API documentation with all endpoints, request/response formats, and examples
 
-### Operations
+### Infrastructure
 
-- **Infrastructure** - Docker, deployment, monitoring
-- **[Testing Overview](testing)** - Overview of testing strategies for backend and frontend
+- **[Infrastructure Overview](infrastructure/)** - Docker setup, development environment, and task processing
+  - **[Development Setup](infrastructure/development.md)** - Docker Compose setup and service management
+  - **[Task Processing](infrastructure/tasks.md)** - Celery task system, workers, Flower monitoring
+
+### Testing
+
+- **[Testing Overview](testing/)** - Overview of testing strategies for backend and frontend
 
 ## License
 

@@ -15,12 +15,8 @@ class DocumentBase(BaseModel):
 
     company_id: int = Field(..., description="ID of the company this document belongs to")
     url: str = Field(..., description="URL where the document was found")
-    fiscal_year: int = Field(
-        ..., description="Fiscal year of the document", ge=1900, le=2100
-    )
-    document_type: str = Field(
-        ..., description="Type of document", max_length=50, min_length=1
-    )
+    fiscal_year: int = Field(..., description="Fiscal year of the document", ge=1900, le=2100)
+    document_type: str = Field(..., description="Type of document", max_length=50, min_length=1)
     file_path: str | None = Field(None, description="Local file path if downloaded")
 
 

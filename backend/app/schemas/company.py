@@ -6,7 +6,6 @@ Copyright: 2025 Patryk Golabek
 """
 
 from datetime import datetime
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -43,10 +42,24 @@ class CompanyUpdate(BaseModel):
     )
 
 
-class CompanyResponse(CompanyBase):
-    """Schema for company response."""
+class CompanyDomain(CompanyBase):
+    """Domain schema for Company used in repository/service layer.
+
+    This schema represents the complete company entity with all database fields.
+    Used internally between repository and service layers for type safety.
+    """
 
     id: int = Field(..., description="Company ID")
     created_at: datetime | None = Field(None, description="Creation timestamp")
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class CompanyResponse(CompanyDomain):
+    """Schema for company API response.
+
+    Currently identical to CompanyDomain, but kept separate for future
+    API-specific extensions (e.g., computed fields, links, etc.).
+    """
+
+    pass

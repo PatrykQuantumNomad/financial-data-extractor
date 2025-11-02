@@ -8,10 +8,12 @@ Copyright: 2025 Patryk Golabek
 """
 
 import os
+import platform
 from typing import Any
 
 from celery import Celery
 from celery.signals import setup_logging, worker_ready
+
 from config import Settings
 
 # Get settings instance
@@ -46,6 +48,12 @@ celery_app = Celery(
     ],
 )
 
+# Determine worker pool based on platform
+# macOS has issues with prefork pool due to Objective-C runtime
+# Use threads pool on macOS, prefork on Linux
+IS_MACOS = platform.system() == "Darwin"
+WORKER_POOL = "threads" if IS_MACOS else "prefork"
+
 # Celery configuration
 celery_app.conf.update(
     task_serializer="json",
@@ -63,6 +71,8 @@ celery_app.conf.update(
     result_expires=3600,  # Results expire after 1 hour
     # Store task results in backend (required for Flower to show task history)
     task_ignore_result=False,
+    # Use threads pool on macOS to avoid fork issues
+    worker_pool=WORKER_POOL,
     # Task routing
     task_routes={
         "app.tasks.scraping_tasks.*": {"queue": "scraping"},
@@ -97,8 +107,7 @@ def config_loggers(*args: Any, **kwargs: Any) -> None:
 
     # Use simple format for Celery worker output (not JSON)
     formatter = logging.Formatter(
-        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
     )
     console_handler.setFormatter(formatter)
 
@@ -132,47 +141,50 @@ def config_loggers(*args: Any, **kwargs: Any) -> None:
 
 
 @worker_ready.connect
-def init_db_pool(*args: Any, **kwargs: Any) -> None:
-    """Initialize database connection pool when worker starts."""
-    import asyncio
+def init_db_session(*args: Any, **kwargs: Any) -> None:
+    """Initialize database session factory when worker starts.
+
+    With SQLAlchemy async sessions, the session factory is already initialized
+    via AsyncSessionLocal. This function logs initialization for monitoring.
+    """
     import logging
 
     logger = logging.getLogger(__name__)
     try:
-        from app.tasks.utils import get_db_pool
+        # AsyncSessionLocal is already initialized in app.db.base
+        # No need to pre-warm since sessions are created on-demand
+        logger.info("Database async session factory ready for Celery worker")
 
-        # Create the pool (with open=False, so it doesn't need event loop)
-        pool = get_db_pool()
-        logger.info("Database connection pool created for Celery worker")
-
-        # Pre-warm the pool by getting a connection in an async context
-        async def warm_pool():
+        # Test that we can create a session (optional, for validation)
+        async def test_session():
             try:
-                # Open the pool if closed (this happens in async context)
-                if pool.closed:
-                    await pool.open()
+                from sqlalchemy import text
 
-                # Get a connection to ensure pool is working
-                async with pool.connection() as conn:
-                    await conn.execute("SELECT 1")
-                    logger.info("Database connection pool warmed up successfully")
+                from app.db.base import AsyncSessionLocal
+
+                # Create a test session and execute a simple query
+                async with AsyncSessionLocal() as session:
+                    await session.execute(text("SELECT 1"))
+                    logger.info("Database session factory validated successfully")
             except Exception as e:
-                logger.warning(f"Could not warm up database pool: {e}")
+                logger.warning(f"Could not validate database session: {e}")
 
-        # Run the warm-up in a new event loop
+        # Run the test in a new event loop
+        import asyncio
+
         try:
             loop = asyncio.get_event_loop()
             if loop.is_running():
-                # If loop is running, schedule the warm-up
-                asyncio.create_task(warm_pool())
+                # If loop is running, schedule the test
+                asyncio.create_task(test_session())
             else:
-                loop.run_until_complete(warm_pool())
+                loop.run_until_complete(test_session())
         except RuntimeError:
             # No event loop, create one
-            asyncio.run(warm_pool())
+            asyncio.run(test_session())
 
     except Exception as e:
-        logger.error(f"Failed to initialize database pool: {e}", exc_info=True)
+        logger.error(f"Failed to initialize database session factory: {e}", exc_info=True)
         # Don't raise - let tasks handle the error when they try to use it
 
 

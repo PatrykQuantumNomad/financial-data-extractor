@@ -5,15 +5,14 @@ It allows the configuration of various components like settings, logging, metric
 routes, middleware, and external service integrations.
 
 Author: Patryk Golabek
-Company: Translucent Computing Inc.
-Copyright: 2024 Translucent Computing Inc.
+Copyright: 2025 Patryk Golabek
 """
 
 import logging
 import logging.config
 import os
 import platform
-from typing import Any, Optional, Union
+from typing import Any
 
 from app.api.middleware.fastapi_error_handler import ErrorHandler
 from config import Settings
@@ -45,9 +44,7 @@ class FastAPIAppBuilder:
     such as settings, logging, metrics, error handlers, routes, and middleware.
     """
 
-    def __init__(
-        self, settings: Optional[Settings] = None, logger: Optional[logging.Logger] = None
-    ):
+    def __init__(self, settings: Settings | None = None, logger: logging.Logger | None = None):
         """Initializes a new instance of FastAPIAppBuilder.
 
         Args:
@@ -66,8 +63,7 @@ class FastAPIAppBuilder:
     def _set_environment_variables(self) -> None:
         """Set the required environment variables for external dependencies
         based on the settings."""
-        env_vars = {
-        }
+        env_vars = {}
 
         for key, value in env_vars.items():
             os.environ[key] = value
@@ -153,7 +149,7 @@ class FastAPIAppBuilder:
             )
 
             # Expose the /metrics endpoint for Prometheus scraping
-            self.fast_api.add_route("/metrics", handle_metrics)  # type: ignore
+            self.fast_api.add_route("/metrics", handle_metrics)
 
             self.logger.info("Prometheus metrics have been set up successfully.")
         except Exception as e:
@@ -206,13 +202,14 @@ class FastAPIAppBuilder:
         Returns:
             FastAPIAppBuilder: The instance of the builder (self).
         """
+
         @self.fast_api.get("/healthcheck", tags=["Health"])
-        async def health_check():  # type: ignore
+        async def health_check():
             """Endpoint for health checking the application."""
             return {"status": "Healthy"}
 
         @self.fast_api.get("/", response_class=HTMLResponse, tags=["Root"])
-        async def root():  # type: ignore
+        async def root():
             """Root endpoint that returns a welcome HTML page."""
             html_content = """
                 <!DOCTYPE html>
@@ -228,7 +225,7 @@ class FastAPIAppBuilder:
             return HTMLResponse(content=html_content)
 
         @self.fast_api.get("/endpoints/", response_class=JSONResponse, tags=["Utility"])
-        async def endpoints(request: Request):  # type: ignore
+        async def endpoints(request: Request):
             """
             Endpoint to list all available routes in the application.
 
@@ -238,7 +235,7 @@ class FastAPIAppBuilder:
             Returns:
                 JSONResponse: A list of all routes available in the application.
             """
-            endpoints: list[dict[str, Union[str, list[str]]]] = [
+            endpoints: list[dict[str, str | list[str]]] = [
                 {"path": route.path, "name": route.name, "methods": list(route.methods)}
                 for route in request.app.routes
                 if hasattr(route, "path")

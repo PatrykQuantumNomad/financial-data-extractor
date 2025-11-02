@@ -5,11 +5,11 @@ Author: Patryk Golabek
 Copyright: 2025 Patryk Golabek
 """
 
-import json
 from typing import Any
 
-from psycopg_pool import AsyncConnectionPool
+from sqlalchemy import select
 
+from app.db.models.extraction import CompiledStatement
 from app.db.repositories.base import BaseRepository
 
 
@@ -21,7 +21,7 @@ class CompiledStatementRepository(BaseRepository):
         company_id: int,
         statement_type: str,
         data: dict[str, Any],
-    ) -> dict[str, Any]:
+    ) -> CompiledStatement:
         """Create a new compiled statement.
 
         Args:
@@ -30,55 +30,49 @@ class CompiledStatementRepository(BaseRepository):
             data: Compiled financial data as dictionary.
 
         Returns:
-            Dictionary representing the created compiled statement.
+            CompiledStatement model instance.
         """
-        query = """
-            INSERT INTO compiled_statements (company_id, statement_type, data)
-            VALUES (%(company_id)s, %(statement_type)s, %(data)s::jsonb)
-            RETURNING *
-        """
-        params = {
-            "company_id": company_id,
-            "statement_type": statement_type,
-            "data": json.dumps(data),
-        }
-        return await self.execute_one(query, params)  # type: ignore
+        compiled_statement = CompiledStatement(
+            company_id=company_id,
+            statement_type=statement_type,
+            data=data,
+        )
+        self.session.add(compiled_statement)
+        await self.session.flush()
+        await self.session.refresh(compiled_statement)
+        return compiled_statement
 
-    async def get_by_id(
-        self, compiled_statement_id: int
-    ) -> dict[str, Any] | None:
+    async def get_by_id(self, compiled_statement_id: int) -> CompiledStatement | None:
         """Get compiled statement by ID.
 
         Args:
             compiled_statement_id: Compiled statement ID.
 
         Returns:
-            Dictionary representing the compiled statement, or None if not found.
+            CompiledStatement model instance, or None if not found.
         """
-        query = "SELECT * FROM compiled_statements WHERE id = %(id)s"
-        return await self.execute_one(query, {"id": compiled_statement_id})
+        return await self.session.get(CompiledStatement, compiled_statement_id)
 
-    async def get_by_company(
-        self, company_id: int
-    ) -> list[dict[str, Any]]:
+    async def get_by_company(self, company_id: int) -> list[CompiledStatement]:
         """Get all compiled statements for a company.
 
         Args:
             company_id: Company ID.
 
         Returns:
-            List of dictionaries representing compiled statements.
+            List of CompiledStatement model instances.
         """
-        query = """
-            SELECT * FROM compiled_statements
-            WHERE company_id = %(company_id)s
-            ORDER BY statement_type
-        """
-        return await self.execute_query(query, {"company_id": company_id})
+        stmt = (
+            select(CompiledStatement)
+            .where(CompiledStatement.company_id == company_id)
+            .order_by(CompiledStatement.statement_type)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def get_by_company_and_type(
         self, company_id: int, statement_type: str
-    ) -> dict[str, Any] | None:
+    ) -> CompiledStatement | None:
         """Get compiled statement by company and statement type.
 
         Args:
@@ -86,21 +80,20 @@ class CompiledStatementRepository(BaseRepository):
             statement_type: Type of financial statement.
 
         Returns:
-            Dictionary representing the compiled statement, or None if not found.
+            CompiledStatement model instance, or None if not found.
         """
-        query = """
-            SELECT * FROM compiled_statements
-            WHERE company_id = %(company_id)s AND statement_type = %(statement_type)s
-        """
-        return await self.execute_one(
-            query, {"company_id": company_id, "statement_type": statement_type}
+        stmt = select(CompiledStatement).where(
+            CompiledStatement.company_id == company_id,
+            CompiledStatement.statement_type == statement_type,
         )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
 
     async def update(
         self,
         compiled_statement_id: int,
         data: dict[str, Any] | None = None,
-    ) -> dict[str, Any] | None:
+    ) -> CompiledStatement | None:
         """Update a compiled statement.
 
         Args:
@@ -108,29 +101,25 @@ class CompiledStatementRepository(BaseRepository):
             data: Compiled financial data as dictionary (optional).
 
         Returns:
-            Dictionary representing the updated compiled statement, or None if not found.
+            CompiledStatement model instance, or None if not found.
         """
-        if data is None:
-            return await self.get_by_id(compiled_statement_id)
+        compiled_statement = await self.session.get(CompiledStatement, compiled_statement_id)
+        if compiled_statement is None:
+            return None
 
-        query = """
-            UPDATE compiled_statements
-            SET data = %(data)s::jsonb, updated_at = NOW()
-            WHERE id = %(id)s
-            RETURNING *
-        """
-        params = {
-            "id": compiled_statement_id,
-            "data": json.dumps(data),
-        }
-        return await self.execute_one(query, params)  # type: ignore
+        if data is not None:
+            compiled_statement.data = data
+
+        await self.session.flush()
+        await self.session.refresh(compiled_statement)
+        return compiled_statement
 
     async def upsert(
         self,
         company_id: int,
         statement_type: str,
         data: dict[str, Any],
-    ) -> dict[str, Any]:
+    ) -> CompiledStatement:
         """Insert or update a compiled statement.
 
         If a compiled statement exists for the company and statement type, it will be updated.
@@ -142,23 +131,25 @@ class CompiledStatementRepository(BaseRepository):
             data: Compiled financial data as dictionary.
 
         Returns:
-            Dictionary representing the compiled statement.
+            CompiledStatement model instance.
         """
-        query = """
-            INSERT INTO compiled_statements (company_id, statement_type, data)
-            VALUES (%(company_id)s, %(statement_type)s, %(data)s::jsonb)
-            ON CONFLICT (company_id, statement_type)
-            DO UPDATE SET
-                data = EXCLUDED.data,
-                updated_at = NOW()
-            RETURNING *
-        """
-        params = {
-            "company_id": company_id,
-            "statement_type": statement_type,
-            "data": json.dumps(data),
-        }
-        return await self.execute_one(query, params)  # type: ignore
+        # Try to get existing statement using direct query to get model
+        stmt = select(CompiledStatement).where(
+            CompiledStatement.company_id == company_id,
+            CompiledStatement.statement_type == statement_type,
+        )
+        result = await self.session.execute(stmt)
+        existing = result.scalar_one_or_none()
+
+        if existing is not None:
+            # Update existing
+            existing.data = data
+            await self.session.flush()
+            await self.session.refresh(existing)
+            return existing
+
+        # Create new
+        return await self.create(company_id, statement_type, data)
 
     async def delete(self, compiled_statement_id: int) -> bool:
         """Delete a compiled statement by ID.
@@ -169,8 +160,10 @@ class CompiledStatementRepository(BaseRepository):
         Returns:
             True if compiled statement was deleted, False otherwise.
         """
-        query = "DELETE FROM compiled_statements WHERE id = %(id)s"
-        rows_affected = await self.execute_delete(
-            query, {"id": compiled_statement_id}
-        )
-        return rows_affected > 0
+        compiled_statement = await self.session.get(CompiledStatement, compiled_statement_id)
+        if compiled_statement is None:
+            return False
+
+        await self.session.delete(compiled_statement)
+        await self.session.flush()
+        return True

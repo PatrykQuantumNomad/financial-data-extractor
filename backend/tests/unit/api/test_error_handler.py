@@ -6,17 +6,21 @@ Copyright: 2025 Patryk Golabek
 """
 
 import logging
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock
 
 import pytest
-from app.api.middleware.fastapi_error_handler import (ErrorHandler,
-                                                      ProblemDetails)
-from app.core.exceptions.custom_exceptions import (BusinessLogicError, Error,
-                                                   ErrorType, ForbiddenError,
-                                                   JSONFileNotFoundError,
-                                                   JSONInvalidEncodingError,
-                                                   JSONInvalidError)
 from fastapi import FastAPI, HTTPException, Request, status
+
+from app.api.middleware.fastapi_error_handler import ErrorHandler
+from app.core.exceptions.api_exceptions import (
+    ApiError,
+    BadRequestError,
+    ErrorType,
+    ForbiddenError,
+    JSONFileNotFoundError,
+    JSONInvalidEncodingError,
+    JSONInvalidError,
+)
 
 
 @pytest.mark.unit
@@ -54,7 +58,7 @@ class TestErrorHandler:
     def test_register_default_handlers(self, error_handler: ErrorHandler):
         """Test registering default exception handlers."""
         # Arrange
-        expected_handlers = 8
+        expected_handlers = 10
 
         # Act
         error_handler.register_default_handlers()
@@ -81,6 +85,7 @@ class TestErrorHandler:
 
         # Parse response body
         import json
+
         body = json.loads(response.body.decode())
         assert body["type"] == expected_type
         assert body["status"] == expected_status
@@ -88,16 +93,16 @@ class TestErrorHandler:
         assert "[Request ID: test-request-id]" in body["detail"]
 
     @pytest.mark.asyncio
-    async def test_business_logic_error_handler_returns_400(
+    async def test_bad_request_error_handler_returns_400(
         self, error_handler: ErrorHandler, mock_request: MagicMock
     ):
-        """Test BusinessLogicError handler returns 400."""
+        """Test BadRequestError handler returns 400."""
         # Arrange
-        exc = BusinessLogicError(detail="Invalid business logic")
+        exc = BadRequestError(detail="Invalid business logic")
         expected_status = status.HTTP_400_BAD_REQUEST
 
         # Act
-        response = await error_handler.business_logic_error_handler(mock_request, exc)
+        response = await error_handler.bad_request_error_handler(mock_request, exc)
 
         # Assert
         assert response.status_code == expected_status
@@ -142,9 +147,7 @@ class TestErrorHandler:
         expected_status = status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
 
         # Act
-        response = await error_handler.json_invalid_encoding_error_handler(
-            mock_request, exc
-        )
+        response = await error_handler.json_invalid_encoding_error_handler(mock_request, exc)
 
         # Assert
         assert response.status_code == expected_status
@@ -153,9 +156,9 @@ class TestErrorHandler:
     async def test_custom_error_handler_returns_appropriate_status(
         self, error_handler: ErrorHandler, mock_request: MagicMock
     ):
-        """Test generic custom Error handler returns appropriate status."""
+        """Test generic custom ApiError handler returns appropriate status."""
         # Arrange
-        exc = Error(
+        exc = ApiError(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Generic error",
             title="Error",
@@ -218,13 +221,12 @@ class TestErrorHandler:
 
         # Assert
         import json
+
         body = json.loads(response.body.decode())
         assert "[Request ID: test-request-id]" in body["detail"]
 
     @pytest.mark.asyncio
-    async def test_create_problem_response_without_request_id(
-        self, error_handler: ErrorHandler
-    ):
+    async def test_create_problem_response_without_request_id(self, error_handler: ErrorHandler):
         """Test that response works without request ID."""
         # Arrange
         mock_request = MagicMock(spec=Request)
@@ -245,6 +247,7 @@ class TestErrorHandler:
 
         # Assert
         import json
+
         body = json.loads(response.body.decode())
         assert "[Request ID:" not in body["detail"]
 
@@ -269,6 +272,7 @@ class TestErrorHandler:
 
         # Assert
         import json
+
         body = json.loads(response.body.decode())
         # Request ID is prepended to detail when available
         assert "Exception detail" in body["detail"]
@@ -296,5 +300,6 @@ class TestErrorHandler:
 
         # Assert
         import json
+
         body = json.loads(response.body.decode())
         assert body["instance"] == "https://example.com/test/path"

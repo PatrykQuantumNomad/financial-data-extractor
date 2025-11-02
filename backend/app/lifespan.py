@@ -1,23 +1,19 @@
 """
 This module manages the lifespan of the FastAPI application.
 
-It initializes and cleans up essential resources such as the database connection pool.
+It initializes and cleans up essential resources such as the database async engine.
 Ensures proper cleanup of resources upon application startup and shutdown.
 
 Author: Patryk Golabek
-Company: Translucent Computing Inc.
-Copyright: 2024 Translucent Computing Inc.
+Copyright: 2025 Patryk Golabek
 """
 
 import logging
-import logging.config
 from contextlib import asynccontextmanager
-from urllib.parse import quote_plus
 
+from app.db.base import async_engine
 from config import Settings
 from fastapi import FastAPI
-from psycopg.rows import dict_row
-from psycopg_pool import AsyncConnectionPool
 
 
 class LifespanManager:
@@ -44,7 +40,7 @@ class LifespanManager:
         """
         Lifespan event handler to initialize and cleanup resources.
 
-        This context manager initializes the database connection pool
+        This context manager stores the async database engine in app state
         and ensures proper cleanup of resources upon application shutdown.
 
         Args:
@@ -54,30 +50,17 @@ class LifespanManager:
             None: Hands control back to the application.
         """
         try:
-            settings: Settings = app.state.settings
+            # Store the async engine in app state for repository access
+            app.state.async_engine = async_engine
+            self.logger.info("Database async engine initialized successfully.")
 
-            # URL-encode the database credentials to handle special characters
-            db_username = quote_plus(settings.db_username)
-            db_password = quote_plus(settings.db_password)
-
-            # Construct the database URI from settings
-            db_uri = (
-                f"postgresql://{db_username}:{db_password}"
-                f"@{settings.db_host}:{settings.db_port}/"
-                f"{settings.db_name}"
-            )
-
-            # Create the connection pool using async with
-            async with AsyncConnectionPool(
-                conninfo=db_uri, max_size=20, kwargs={"autocommit": True, "row_factory": dict_row}
-            ) as pool:
-                app.state.db_pool = pool
-                self.logger.info("Database connection pool created successfully.")
-                # Yield control to the application to start processing
-                yield
+            # Yield control to the application to start processing
+            yield
 
         except Exception as e:
             self.logger.exception("Failed during application lifespan initialization: %s", e)
             raise
         finally:
+            # Cleanup async engine
+            await async_engine.dispose()
             self.logger.info("Application is shutting down...")

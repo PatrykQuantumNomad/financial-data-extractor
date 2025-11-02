@@ -7,7 +7,6 @@ Copyright: 2025 Patryk Golabek
 """
 
 import logging
-from typing import List
 
 
 class SuppressSpecificLogEntries(logging.Filter):
@@ -22,7 +21,7 @@ class SuppressSpecificLogEntries(logging.Filter):
             Determines if the log record should be suppressed based on its message content.
     """
 
-    def __init__(self, suppressed_entries: List[str]):
+    def __init__(self, suppressed_entries: list[str]):
         """
         Initializes the SuppressSpecificLogEntries filter with a list of strings to suppress.
 

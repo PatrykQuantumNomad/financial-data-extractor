@@ -11,8 +11,9 @@ Copyright: 2025 Patryk Golabek
 
 import logging
 
-from config import Settings
 from fastapi import FastAPI
+
+from config import Settings
 
 from .app_builder import FastAPIAppBuilder
 from .utils.logger import AppLogger
