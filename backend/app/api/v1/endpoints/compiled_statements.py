@@ -7,16 +7,13 @@ Copyright: 2025 Patryk Golabek
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, status
-from fastapi.responses import JSONResponse
-
-from app.schemas.extraction import (
-    CompiledStatementCreate,
-    CompiledStatementResponse,
-    CompiledStatementUpdate,
-)
+from app.schemas.extraction import (CompiledStatementCreate,
+                                    CompiledStatementResponse,
+                                    CompiledStatementUpdate)
 from app.services.compiled_statement import CompiledStatementService
 from app.services.dependencies import get_compiled_statement_service
+from fastapi import APIRouter, Depends, Path, status
+from fastapi.responses import JSONResponse
 
 router = APIRouter(
     prefix="/compiled-statements", tags=["Compiled Statements"]
@@ -54,7 +51,7 @@ async def create_or_update_compiled_statement(
 
 
 @router.get(
-    "/{compiled-statement-id}",
+    "/{compiled_statement_id}",
     response_model=CompiledStatementResponse,
     summary="Get compiled statement by ID",
     description="Get a specific compiled statement by its ID.",
@@ -83,7 +80,7 @@ async def get_compiled_statement(
 
 
 @router.get(
-    "/companies/{company-id}",
+    "/companies/{company_id}",
     response_model=list[CompiledStatementResponse],
     summary="List compiled statements for a company",
     description="Get all compiled statements for a specific company.",
@@ -114,7 +111,7 @@ async def list_compiled_statements_by_company(
 
 
 @router.get(
-    "/companies/{company-id}/statement-type/{statement-type}",
+    "/companies/{company_id}/statement-type/{statement_type}",
     response_model=CompiledStatementResponse,
     summary="Get compiled statement by company and statement type",
     description="Get a compiled statement for a company by statement type.",
@@ -145,7 +142,7 @@ async def get_compiled_statement_by_company_and_type(
 
 
 @router.put(
-    "/{compiled-statement-id}",
+    "/{compiled_statement_id}",
     response_model=CompiledStatementResponse,
     summary="Update a compiled statement",
     description="Update an existing compiled statement with the provided information.",
@@ -178,7 +175,7 @@ async def update_compiled_statement(
 
 
 @router.delete(
-    "/{compiled-statement-id}",
+    "/{compiled_statement_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a compiled statement",
     description="Delete a compiled statement by its ID.",

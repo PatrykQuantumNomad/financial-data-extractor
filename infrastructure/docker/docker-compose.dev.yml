@@ -64,7 +64,40 @@ services:
     ports:
       - "8081:8081"
 
+  flower:
+    image: python:3.12-slim
+    container_name: fde-flower
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    working_dir: /app
+    volumes:
+      - ../../backend:/app
+      - flower-data:/var/flower
+    command: >
+      sh -c "
+        pip install --no-cache-dir uv &&
+        uv sync --extra dev &&
+        uv run celery -A app.tasks.celery_app flower
+          --port=5555
+          --persistent=True
+          --db=/var/flower/flower.db
+          --broker=redis://redis:6379/0
+          --broker_api=redis://redis:6379/0
+      "
+    ports:
+      - "5555:5555"
+    environment:
+      - PYTHONUNBUFFERED=1
+      # Redis connection (matching docker-compose service name)
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - REDIS_PASSWORD=
+
 volumes:
   postgres-data:
   pgadmin-data:
   redis-data:
+  flower-data:

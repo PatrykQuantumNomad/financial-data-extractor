@@ -1,35 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { companiesApi } from "@/lib/api/companies";
-import { ExtractionControls } from "./extraction-controls";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useCompanies } from "@/lib/hooks";
+import { isQueryLoading } from "@/lib/utils/query-utils";
 import type { Company } from "@/lib/types";
 import { Building2 } from "lucide-react";
+import { ExtractionControls } from "./extraction-controls";
 
 export function ExtractionPageContent() {
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [loading, setLoading] = useState(true);
+  const companiesQuery = useCompanies();
+  const { data: companies } = companiesQuery;
+  const isLoading = isQueryLoading(companiesQuery);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
 
-  useEffect(() => {
-    async function fetchCompanies() {
-      try {
-        const data = await companiesApi.getAll();
-        setCompanies(data);
-      } catch (error) {
-        console.error("Failed to load companies:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchCompanies();
-  }, []);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {[1, 2, 3].map((i) => (
@@ -43,7 +35,7 @@ export function ExtractionPageContent() {
     );
   }
 
-  if (companies.length === 0) {
+  if (!companies || companies.length === 0) {
     return (
       <Card>
         <CardContent className="pt-6">
@@ -61,7 +53,9 @@ export function ExtractionPageContent() {
         <Card>
           <CardHeader>
             <CardTitle>Select Company</CardTitle>
-            <CardDescription>Choose a company to extract data for</CardDescription>
+            <CardDescription>
+              Choose a company to extract data for
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {companies.map((company) => {
@@ -85,7 +79,9 @@ export function ExtractionPageContent() {
                       isSelected ? "text-primary-foreground" : ""
                     }`}
                   />
-                  <span className={isSelected ? "font-semibold" : ""}>{company.name}</span>
+                  <span className={isSelected ? "font-semibold" : ""}>
+                    {company.name}
+                  </span>
                 </Button>
               );
             })}

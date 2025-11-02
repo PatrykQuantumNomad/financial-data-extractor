@@ -35,8 +35,9 @@ The frontend serves as the primary interface for users to:
 
 ### Data & API
 
+- **React Query (TanStack Query)** - Data fetching, caching, and synchronization with automatic background updates
 - **Axios** - HTTP client with interceptors for error handling
-- **SWR** - Data fetching and caching (available for future optimization)
+- **React Query DevTools** - Development tools for debugging queries and mutations
 
 ## Architecture Diagram
 
@@ -68,53 +69,73 @@ graph TB
         H --> I
     end
 
-    subgraph "API Client Layer"
-        J[API Client - Axios]
-        K[Companies API]
-        L[Statements API]
-        M[Documents API]
-        N[Tasks API]
+    subgraph "Data Fetching Layer"
+        J[React Query Provider]
+        K[Query Hooks]
+        L[Companies Hooks]
+        M[Statements Hooks]
+        N[Documents Hooks]
+        O[Tasks Hooks]
         J --> K
-        J --> L
-        J --> M
-        J --> N
+        K --> L
+        K --> M
+        K --> N
+        K --> O
+    end
+
+    subgraph "API Client Layer"
+        P[API Client - Axios]
+        Q[Companies API]
+        R[Statements API]
+        S[Documents API]
+        T[Tasks API]
+        P --> Q
+        P --> R
+        P --> S
+        P --> T
     end
 
     subgraph "Backend API"
-        O[FastAPI Backend<br/>:3030]
+        U[FastAPI Backend<br/>:3030]
     end
 
     subgraph "Data Layer"
-        P[TypeScript Types]
-        Q[Utility Functions]
+        V[TypeScript Types]
+        W[Utility Functions]
     end
 
-    E --> K
-    F --> L
-    G --> M
-    H --> N
-    K --> O
-    L --> O
-    M --> O
-    N --> O
-    K --> P
-    L --> P
-    M --> P
-    N --> P
-    E --> Q
-    F --> Q
+    E --> L
+    F --> M
+    G --> N
+    H --> O
+    L --> Q
+    M --> R
+    N --> S
+    O --> T
+    Q --> U
+    R --> U
+    S --> U
+    T --> U
+    Q --> V
+    R --> V
+    S --> V
+    T --> V
+    E --> W
+    F --> W
 
     classDef nextjs fill:#000000,stroke:#fff,stroke-width:2px,color:#fff
     classDef component fill:#61dafb,stroke:#20232a,stroke-width:2px
+    classDef datafetching fill:#ff6b6b,stroke:#fff,stroke-width:2px,color:#fff
     classDef api fill:#0070f3,stroke:#fff,stroke-width:2px,color:#fff
     classDef backend fill:#009688,stroke:#fff,stroke-width:2px,color:#fff
     classDef data fill:#f7df1e,stroke:#323330,stroke-width:2px
 
     class A,B,C,D nextjs
     class E,F,G,H,I component
-    class J,K,L,M,N api
-    class O backend
-    class P,Q data
+    class J,K,L,M,N,O datafetching
+    class P,Q,R,S,T api
+    class U backend
+    class V,W data
 ```
 
 ## Project Structure
@@ -166,16 +187,26 @@ frontend/
 │       ├── api/                      # API client modules
 │       │   ├── client.ts             # Axios instance with interceptors
 │       │   ├── companies.ts          # Company CRUD operations
-│       │   ├── documents.ts           # Document listing operations
-│       │   ├── statements.ts          # Compiled statement retrieval
-│       │   └── tasks.ts              # Task triggering and status
+│       │   ├── documents.ts          # Document listing operations
+│       │   ├── statements.ts         # Compiled statement retrieval
+│       │   └── tasks.ts             # Task triggering and status
+│       │
+│       ├── hooks/                    # React Query hooks
+│       │   ├── use-companies.ts      # Company query hooks
+│       │   ├── use-documents.ts      # Document query hooks
+│       │   ├── use-statements.ts      # Statement query hooks
+│       │   ├── use-tasks.ts          # Task mutation and query hooks
+│       │   └── index.ts              # Hooks exports
+│       │
+│       ├── providers/                # React context providers
+│       │   └── query-provider.tsx     # React Query provider with DevTools
 │       │
 │       ├── types/
 │       │   └── index.ts              # TypeScript types matching backend schemas
 │       │
 │       └── utils/
 │           ├── utils.ts              # cn() helper for Tailwind classes
-│           └── formatters.ts         # Currency, number, percent formatters
+│           └── formatters.ts        # Currency, number, percent formatters
 │
 ├── public/
 │   └── images/
@@ -191,25 +222,64 @@ frontend/
 
 ## Page Architecture
 
-### Server Components (Default)
+### Server Components with Suspense
 
-Next.js 15 defaults to Server Components, which run on the server and can directly access databases or APIs:
+Next.js 15 uses Server Components with React Suspense for streaming and progressive rendering:
 
 ```typescript
 // app/companies/[id]/statements/[type]/page.tsx
 export default async function StatementPage({ params }: PageProps) {
   const { id, type } = await params;
-  const company = await companiesApi.getById(companyId);
-  // Server Component - no "use client" needed
+  return (
+    <StatementPageContent companyId={parseInt(id)} statementType={type} />
+  );
+}
+
+// components/statements/statement-page-content.tsx
+export function StatementPageContent({ companyId, statementType }) {
+  return (
+    <Suspense fallback={<StatementPageLoading />}>
+      <StatementDataLoader companyId={companyId} statementType={statementType} />
+    </Suspense>
+  );
 }
 ```
 
 **Benefits:**
 
 - Smaller client bundle (component code doesn't ship to browser)
-- Direct API access without exposing endpoints
+- Streaming SSR with Suspense boundaries
+- Progressive page rendering
 - Better SEO (content rendered on server)
 - Improved security (secrets can be used on server)
+
+### Client Components with React Query
+
+Client Components use React Query hooks for data fetching:
+
+```typescript
+// components/dashboard/company-list.tsx
+"use client";
+
+import { useCompanies } from "@/lib/hooks";
+
+export function CompanyList() {
+  const { data: companies, isLoading, error } = useCompanies();
+  
+  if (isLoading) return <LoadingSkeleton />;
+  if (error) return <ErrorDisplay error={error} />;
+  
+  return <CompanyGrid companies={companies} />;
+}
+```
+
+**Benefits of React Query:**
+
+- Automatic caching and background refetching
+- Built-in loading and error states
+- Request deduplication
+- Optimistic updates
+- Automatic retry on failure
 
 ### Client Components (When Needed)
 
@@ -219,9 +289,11 @@ Use `"use client"` directive for interactive components:
 // components/dashboard/company-list.tsx
 "use client";
 
+import { useCompanies } from "@/lib/hooks";
+
 export function CompanyList() {
-  const [companies, setCompanies] = useState<Company[]>([]);
-  // Client Component - uses hooks and interactivity
+  const { data: companies, isLoading, error } = useCompanies();
+  // Client Component - uses React Query hooks
 }
 ```
 
@@ -231,6 +303,7 @@ export function CompanyList() {
 - Component handles user interactions (onClick, onChange)
 - Component uses browser APIs (localStorage, window)
 - Component needs event listeners
+- Component uses React Query hooks (`useQuery`, `useMutation`)
 
 ## Component Architecture
 
@@ -297,18 +370,25 @@ interface CompiledStatement {
 
 #### Task Status Monitor
 
-Real-time polling of Celery task status:
+Real-time polling of Celery task status using React Query:
 
 ```typescript
-// Polls every 2 seconds until task completes
-useEffect(() => {
-  const interval = setInterval(async () => {
-    const status = await tasksApi.getTaskStatus(taskId);
-    if (status.status === "SUCCESS" || status.status === "FAILURE") {
-      clearInterval(interval);
-    }
-  }, 2000);
-}, [taskId]);
+// lib/hooks/use-tasks.ts
+export function useTaskStatus(taskId: string) {
+  return useQuery({
+    queryKey: ["tasks", "status", taskId],
+    queryFn: () => tasksApi.getTaskStatus(taskId),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      // Poll every 2 seconds if task is still running
+      if (status === "PENDING" || status === "STARTED" || status === "RETRY") {
+        return 2000;
+      }
+      // Stop polling if task is complete
+      return false;
+    },
+  });
+}
 ```
 
 **Status Handling:**
@@ -319,18 +399,91 @@ useEffect(() => {
 - FAILURE → X icon, red badge with error message
 - RETRY → Spinner, orange badge
 
-## API Client Architecture
+**Benefits of React Query approach:**
 
-### Axios Configuration
+- Automatic polling management
+- Cache invalidation on task completion
+- Better error handling and retry logic
+- Cleaner component code
 
-The API client uses interceptors for consistent error handling:
+## Data Fetching Architecture
+
+### React Query Setup
+
+React Query provides powerful data fetching, caching, and synchronization capabilities:
+
+```typescript
+// lib/providers/query-provider.tsx
+export function QueryProvider({ children }) {
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 60 * 1000,      // Data fresh for 1 minute
+        gcTime: 5 * 60 * 1000,    // Cache kept for 5 minutes
+        refetchOnWindowFocus: false,
+        retry: 1,
+      },
+    },
+  }));
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      {children}
+      <ReactQueryDevtools /> {/* DevTools in development */}
+    </QueryClientProvider>
+  );
+}
+```
+
+### Query Hooks Pattern
+
+Each resource has dedicated React Query hooks:
+
+```typescript
+// lib/hooks/use-companies.ts
+export function useCompanies() {
+  return useQuery({
+    queryKey: ["companies"],
+    queryFn: () => companiesApi.getAll(),
+  });
+}
+
+export function useCompany(id: number) {
+  return useQuery({
+    queryKey: ["companies", id],
+    queryFn: () => companiesApi.getById(id),
+    enabled: !!id,
+  });
+}
+
+export function useCreateCompany() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: companiesApi.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["companies"] });
+    },
+  });
+}
+```
+
+**Benefits:**
+
+- Automatic caching and background updates
+- Built-in loading and error states
+- Optimistic updates support
+- Request deduplication
+- Automatic retry logic
+- Type-safe with TypeScript
+
+### API Client Layer
+
+The API client uses Axios with interceptors for consistent error handling:
 
 ```typescript
 // lib/api/client.ts
 export const apiClient: AxiosInstance = axios.create({
-  baseURL: `${
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3030"
-  }/api/v1`,
+  baseURL: `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3030"}/api/v1`,
   headers: { "Content-Type": "application/json" },
 });
 
@@ -343,30 +496,22 @@ export const apiClient: AxiosInstance = axios.create({
 
 ### API Modules
 
-Each resource has a dedicated API module:
+Each resource has a dedicated API module that React Query hooks call:
 
 ```typescript
 // lib/api/companies.ts
 export const companiesApi = {
   getAll: async (): Promise<Company[]> => {
-    /* ... */
+    const response = await apiClient.get<Company[]>("/companies");
+    return response.data;
   },
   getById: async (id: number): Promise<Company> => {
-    /* ... */
-  },
-  create: async (data: CompanyCreate): Promise<Company> => {
-    /* ... */
+    const response = await apiClient.get<Company>(`/companies/${id}`);
+    return response.data;
   },
   // ...
 };
 ```
-
-**Benefits:**
-
-- Type-safe API calls
-- Centralized error handling
-- Easy to mock for testing
-- Consistent request/response patterns
 
 ## Styling Architecture
 

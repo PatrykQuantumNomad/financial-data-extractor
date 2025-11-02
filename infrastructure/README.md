@@ -10,6 +10,7 @@ For local dev we deploy resources to support the application.
 - **pgAdmin 4**: DB admin UI (port 5050)
 - **Redis 7**: cache, Celery broker/result backend (port 6379)
 - **Redis Commander**: Redis UI (port 8081)
+- **Flower**: Celery task monitoring dashboard (port 5555)
 
 Compose file (dev): `docker/docker-compose.dev.yml`
 
@@ -33,6 +34,7 @@ This will start all services in the background and print URLs.
 - **pgAdmin**: `http://localhost:5050` (email: `admin@local.dev`, password: `adminadmin`)
 - **Redis**: `redis://localhost:6379`
 - **Redis Commander**: `http://localhost:8081`
+- **Flower**: `http://localhost:5555` (Celery monitoring dashboard)
 
 In pgAdmin, add a connection to host `postgres` (the service name), user `postgres`, password `postgres`, database `financial_data_extractor`.
 

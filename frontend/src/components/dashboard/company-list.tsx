@@ -1,37 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { companiesApi } from "@/lib/api/companies";
-import type { Company } from "@/lib/types";
+import { useCompanies } from "@/lib/hooks";
+import { getErrorMessage, isQueryLoading } from "@/lib/utils/query-utils";
 import { Building2, ExternalLink, FileText, ChevronRight } from "lucide-react";
 
 export function CompanyList() {
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const companiesQuery = useCompanies();
+  const { data: companies, error } = companiesQuery;
+  const isLoading = isQueryLoading(companiesQuery);
 
-  useEffect(() => {
-    async function fetchCompanies() {
-      try {
-        setLoading(true);
-        const data = await companiesApi.getAll();
-        setCompanies(data);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load companies");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchCompanies();
-  }, []);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {[1, 2, 3].map((i) => (
@@ -53,13 +35,15 @@ export function CompanyList() {
     return (
       <Card>
         <CardContent className="pt-6">
-          <p className="text-destructive">Error: {error}</p>
+          <p className="text-destructive">
+            Error: {getErrorMessage(error, "Failed to load companies")}
+          </p>
         </CardContent>
       </Card>
     );
   }
 
-  if (companies.length === 0) {
+  if (!companies || companies.length === 0) {
     return (
       <Card>
         <CardContent className="pt-6">

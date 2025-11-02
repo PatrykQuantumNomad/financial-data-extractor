@@ -3,9 +3,13 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { tasksApi } from "@/lib/api/tasks";
-import type { Company, TaskStatus } from "@/lib/types";
+import {
+  useTriggerExtractCompany,
+  useTriggerScrapeCompany,
+  useTriggerRecompileCompany,
+} from "@/lib/hooks";
+import { isMutationPending, getErrorMessage } from "@/lib/utils/query-utils";
+import type { Company } from "@/lib/types";
 import { Play, RefreshCw, Loader2 } from "lucide-react";
 import { TaskStatusMonitor } from "./task-status-monitor";
 
@@ -15,45 +19,41 @@ interface ExtractionControlsProps {
 
 export function ExtractionControls({ company }: ExtractionControlsProps) {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  const extractMutation = useTriggerExtractCompany();
+  const scrapeMutation = useTriggerScrapeCompany();
+  const recompileMutation = useTriggerRecompileCompany();
+
+  const isLoading =
+    isMutationPending(extractMutation) ||
+    isMutationPending(scrapeMutation) ||
+    isMutationPending(recompileMutation);
+  const error = extractMutation.error || scrapeMutation.error || recompileMutation.error;
 
   const handleExtractCompany = async () => {
     try {
-      setIsLoading(true);
-      setError(null);
-      const response = await tasksApi.triggerExtractCompany(company.id);
+      const response = await extractMutation.mutateAsync(company.id);
       setActiveTaskId(response.task_id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start extraction");
-    } finally {
-      setIsLoading(false);
+      // Error is handled by mutation
     }
   };
 
   const handleScrapeOnly = async () => {
     try {
-      setIsLoading(true);
-      setError(null);
-      const response = await tasksApi.triggerScrapeCompany(company.id);
+      const response = await scrapeMutation.mutateAsync(company.id);
       setActiveTaskId(response.task_id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start scraping");
-    } finally {
-      setIsLoading(false);
+      // Error is handled by mutation
     }
   };
 
   const handleRecompile = async () => {
     try {
-      setIsLoading(true);
-      setError(null);
-      const response = await tasksApi.triggerRecompileCompany(company.id);
+      const response = await recompileMutation.mutateAsync(company.id);
       setActiveTaskId(response.task_id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start recompilation");
-    } finally {
-      setIsLoading(false);
+      // Error is handled by mutation
     }
   };
 
@@ -118,7 +118,9 @@ export function ExtractionControls({ company }: ExtractionControlsProps) {
 
           {error && (
             <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3">
-              <p className="text-sm text-destructive">{error}</p>
+              <p className="text-sm text-destructive">
+                {getErrorMessage(error, "An error occurred while processing your request")}
+              </p>
             </div>
           )}
         </CardContent>

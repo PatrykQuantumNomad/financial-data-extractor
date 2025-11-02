@@ -1,6 +1,7 @@
 // @ts-check
 
 import next from "@next/eslint-plugin-next";
+import pluginQuery from "@tanstack/eslint-plugin-query";
 import { defineConfig } from "eslint/config";
 import tseslint from "typescript-eslint";
 
@@ -13,8 +14,12 @@ export default defineConfig([
     plugins: {
       "@next/next": next,
     },
-    extends: ["plugin:@next/next/core-web-vitals"],
+    rules: {
+      ...next.configs["core-web-vitals"].rules,
+    },
   },
+  // React Query ESLint plugin - recommended rules
+  ...pluginQuery.configs["flat/recommended"],
   // TypeScript recommended + strict configs
   ...tseslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,

@@ -293,7 +293,8 @@ This documentation site provides comprehensive guides for:
 ### Development
 
 - **Backend Development** - FastAPI setup, database models, API endpoints
-- **[Frontend Architecture](frontend-architecture)** - Next.js 15 architecture, components, and development guide
+- **[Frontend Architecture](frontend-architecture)** - Next.js 15 architecture, React Query, components, and development guide
+- **[Frontend DevTools](frontend-devtools)** - React Query DevTools, ESLint plugin, and frontend debugging tools
 
 ### Processing & Data
 
@@ -307,4 +308,4 @@ This documentation site provides comprehensive guides for:
 
 ## License
 
-Financial Data Extractor is released under the MIT License. See the [LICENSE](https://github.com/PatrykQuantumNomad/financial-data-extractor/blob/main/LICENSE){:target="\_blank"} file for more details.
+Financial Data Extractor is released under the Apache 2.0 License. See the [LICENSE](https://github.com/PatrykQuantumNomad/financial-data-extractor/blob/main/LICENSE){:target="\_blank"} file for more details.

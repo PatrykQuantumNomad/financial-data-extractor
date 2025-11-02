@@ -42,7 +42,7 @@ async def create_document(
 
 
 @router.get(
-    "/{document-id}",
+    "/{document_id}",
     response_model=DocumentResponse,
     summary="Get document by ID",
     description="Get a specific document by its ID.",
@@ -65,7 +65,7 @@ async def get_document(
 
 
 @router.get(
-    "/companies/{company-id}",
+    "/companies/{company_id}",
     response_model=list[DocumentResponse],
     summary="List documents for a company",
     description="Get a paginated list of all documents for a specific company.",
@@ -96,7 +96,7 @@ async def list_documents_by_company(
 
 
 @router.get(
-    "/companies/{company-id}/fiscal-year/{fiscal-year}",
+    "/companies/{company_id}/fiscal-year/{fiscal_year}",
     response_model=list[DocumentResponse],
     summary="Get documents by company and fiscal year",
     description="Get all documents for a company by fiscal year.",
@@ -123,7 +123,7 @@ async def get_documents_by_company_and_year(
 
 
 @router.get(
-    "/companies/{company-id}/type/{document-type}",
+    "/companies/{company_id}/type/{document_type}",
     response_model=list[DocumentResponse],
     summary="Get documents by company and type",
     description="Get all documents for a company by document type.",
@@ -159,7 +159,7 @@ async def get_documents_by_company_and_type(
 
 
 @router.put(
-    "/{document-id}",
+    "/{document_id}",
     response_model=DocumentResponse,
     summary="Update a document",
     description="Update an existing document with the provided information.",
@@ -184,7 +184,7 @@ async def update_document(
 
 
 @router.delete(
-    "/{document-id}",
+    "/{document_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a document",
     description="Delete a document by its ID.",

@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from app.core.scraping import ScrapingService
 from app.db.repositories.company import CompanyRepository
 from app.db.repositories.document import DocumentRepository
 from app.tasks.celery_app import celery_app
@@ -22,6 +23,7 @@ from app.tasks.utils import (calculate_file_hash, get_db_context,
                              validate_task_result)
 from celery import Task
 from celery.exceptions import Retry
+from config import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -86,10 +88,12 @@ def scrape_investor_relations(self: Task, company_id: int) -> dict[str, Any]:
         # Update task state
         self.update_state(state="PROGRESS", meta={"step": "scraping_website"})
 
-        # Scrape website for PDFs
-        # TODO: Implement actual scraping logic using BeautifulSoup
-        # This is a placeholder that should be implemented based on specific website structure
-        discovered_urls = run_async(_discover_pdf_urls(ir_url))
+        # Get OpenAI API key for LLM extraction (optional - falls back to CSS if not available)
+        settings = Settings()
+        openai_api_key = settings.openai_api_key
+
+        # Scrape website for PDFs using Crawl4AI
+        discovered_urls = run_async(_discover_pdf_urls(ir_url, openai_api_key))
 
         logger.info(
             f"Discovered {len(discovered_urls)} PDF URLs",
@@ -309,61 +313,64 @@ async def _get_document_info(document_id: int) -> dict[str, Any] | None:
         return await repo.get_by_id(document_id)
 
 
-async def _discover_pdf_urls(ir_url: str) -> list[dict[str, Any]]:
-    """Discover PDF URLs from investor relations website.
+async def _discover_pdf_urls(ir_url: str, openai_api_key: str | None = None) -> list[dict[str, Any]]:
+    """Discover PDF URLs from investor relations website using Crawl4AI.
 
-    TODO: Implement actual scraping logic.
-    This should use BeautifulSoup to parse HTML and find PDF links.
+    Uses Crawl4AI's LLM extraction capabilities to intelligently discover
+    PDF documents from investor relations websites, handling JavaScript-rendered
+    content and complex page structures.
 
     Args:
         ir_url: Investor relations website URL.
+        openai_api_key: Optional OpenAI API key for LLM extraction.
+            If not provided, falls back to CSS/XPath extraction.
 
     Returns:
-        List of dictionaries with URL, filename, and metadata.
+        List of dictionaries with URL, filename, fiscal_year, document_type, and metadata.
 
     Raises:
-        httpx.HTTPStatusError: If HTTP request fails (403, 404, etc.)
+        Exception: If scraping fails.
     """
-    # Add polite delay before scraping (respect rate limits)
-    await asyncio.sleep(1.0)  # 1 second delay
+    logger.info(
+        f"Starting PDF discovery for {ir_url}",
+        extra={"url": ir_url, "use_llm": openai_api_key is not None},
+    )
 
-    # Placeholder implementation
-    # Should use BeautifulSoup to scrape and find PDF links
-    async with httpx.AsyncClient(
-        timeout=httpx.Timeout(30.0, connect=10.0),
-        headers=DEFAULT_HEADERS,
-        follow_redirects=True,
-        max_redirects=5,
-    ) as client:
-        try:
-            response = await client.get(ir_url)
+    try:
+        # Use Crawl4AI scraping service
+        async with ScrapingService(openai_api_key=openai_api_key) as service:
+            # Discover PDFs (use LLM if API key available, otherwise CSS fallback)
+            use_llm = openai_api_key is not None
+            discovered_pdfs = await service.discover_pdf_urls(ir_url, use_llm=use_llm)
 
-            # Handle 403 Forbidden specifically
-            if response.status_code == 403:
-                logger.warning(
-                    f"Got 403 Forbidden for {ir_url} - website may be blocking requests",
-                    extra={"url": ir_url, "status_code": 403},
-                )
-                # Don't raise - return empty list instead
-                # This allows the task to complete without error
-                return []
+            # Convert DiscoveredPDF objects to dictionaries
+            pdf_dicts = []
+            for pdf in discovered_pdfs:
+                pdf_dicts.append({
+                    "url": pdf.url,
+                    "filename": pdf.filename,
+                    "fiscal_year": pdf.fiscal_year,
+                    "document_type": pdf.document_type,
+                    "title": pdf.title,
+                    "description": pdf.description,
+                    "confidence": pdf.confidence,
+                })
 
-            response.raise_for_status()
+            logger.info(
+                f"Successfully discovered {len(pdf_dicts)} PDFs from {ir_url}",
+                extra={"url": ir_url, "count": len(pdf_dicts)},
+            )
 
-            # TODO: Parse HTML and extract PDF links using BeautifulSoup
-            # For now, return empty list
-            return []
+            return pdf_dicts
 
-        except httpx.HTTPStatusError as e:
-            # Log the error but don't fail silently for non-403 errors
-            if e.response.status_code == 403:
-                logger.warning(
-                    f"403 Forbidden for {ir_url} - skipping",
-                    extra={"url": ir_url},
-                )
-                return []
-            # Re-raise for other HTTP errors
-            raise
+    except Exception as e:
+        logger.error(
+            f"Failed to discover PDFs from {ir_url}: {e}",
+            exc_info=True,
+            extra={"url": ir_url},
+        )
+        # Re-raise to allow Celery retry logic
+        raise
 
 
 async def _create_document_records(company_id: int, urls: list[dict[str, Any]]) -> list[dict[str, Any]]:

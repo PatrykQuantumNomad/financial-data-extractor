@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { tasksApi } from "@/lib/api/tasks";
+import { Button } from "@/components/ui/button";
+import { useTaskStatus } from "@/lib/hooks";
 import type { TaskStatus } from "@/lib/types";
-import { Loader2, CheckCircle2, XCircle, Clock, type LucideIcon } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Clock, X, type LucideIcon } from "lucide-react";
 
 interface TaskStatusMonitorProps {
   taskId: string;
@@ -31,49 +32,28 @@ const STATUS_ICONS: Partial<Record<TaskStatus["status"], LucideIcon>> = {
 };
 
 export function TaskStatusMonitor({ taskId, onComplete }: TaskStatusMonitorProps) {
-  const [status, setStatus] = useState<TaskStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: status, isLoading } = useTaskStatus(taskId);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-
-    async function pollStatus() {
-      try {
-        const taskStatus = await tasksApi.getTaskStatus(taskId);
-        setStatus(taskStatus);
-        setLoading(false);
-
-        if (taskStatus.status === "SUCCESS" || taskStatus.status === "FAILURE") {
-          if (interval) {
-            clearInterval(interval);
-          }
-          if (onComplete && taskStatus.status === "SUCCESS") {
-            // Delay callback to allow user to see success state
-            setTimeout(() => {
-              onComplete();
-            }, 2000);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to poll task status:", error);
-        setLoading(false);
+    if (status && (status.status === "SUCCESS" || status.status === "FAILURE")) {
+      if (onComplete) {
+        // Auto-hide after showing completion state for 5 seconds
+        // This gives user time to see the result
+        const timer = setTimeout(() => {
+          onComplete();
+        }, 5000);
+        return () => clearTimeout(timer);
       }
     }
+  }, [status, onComplete]);
 
-    // Poll immediately
-    pollStatus();
+  const handleDismiss = () => {
+    if (onComplete) {
+      onComplete();
+    }
+  };
 
-    // Then poll every 2 seconds
-    interval = setInterval(pollStatus, 2000);
-
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, [taskId, onComplete]);
-
-  if (!status && loading) {
+  if (isLoading || !status) {
     return (
       <Card>
         <CardContent className="pt-6">
@@ -93,15 +73,30 @@ export function TaskStatusMonitor({ taskId, onComplete }: TaskStatusMonitorProps
   const StatusIcon = STATUS_ICONS[status.status] || Clock;
   const statusColor = STATUS_COLORS[status.status] || "bg-gray-100 text-gray-800 border-gray-200";
 
+  const isComplete = status.status === "SUCCESS" || status.status === "FAILURE";
+
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Task Status</CardTitle>
-          <Badge className={statusColor}>
-            <StatusIcon className="mr-1 h-3 w-3" />
-            {status.status}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-lg">Task Status</CardTitle>
+            <Badge className={statusColor}>
+              <StatusIcon className="mr-1 h-3 w-3" />
+              {status.status}
+            </Badge>
+          </div>
+          {isComplete && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDismiss}
+              className="h-8 w-8 p-0"
+              aria-label="Dismiss task status"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
         </div>
         <CardDescription>Task ID: {taskId.slice(0, 8)}...</CardDescription>
       </CardHeader>
@@ -139,7 +134,13 @@ export function TaskStatusMonitor({ taskId, onComplete }: TaskStatusMonitorProps
 
         {status.status === "SUCCESS" && (
           <p className="text-sm text-muted-foreground">
-            You may need to refresh the page to see updated data.
+            This panel will auto-dismiss in a few seconds. You may need to refresh the page to see updated data.
+          </p>
+        )}
+
+        {status.status === "FAILURE" && (
+          <p className="text-sm text-muted-foreground">
+            This panel will auto-dismiss in a few seconds.
           </p>
         )}
       </CardContent>

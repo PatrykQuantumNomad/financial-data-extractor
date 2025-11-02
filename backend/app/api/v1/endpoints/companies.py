@@ -68,7 +68,7 @@ async def list_companies(
 
 
 @router.get(
-    "/{company-id}",
+    "/{company_id}",
     response_model=CompanyResponse,
     summary="Get company by ID",
     description="Get a specific company by its ID.",
@@ -114,7 +114,7 @@ async def get_company_by_ticker(
 
 
 @router.put(
-    "/{company-id}",
+    "/{company_id}",
     response_model=CompanyResponse,
     summary="Update a company",
     description="Update an existing company with the provided information.",
@@ -139,7 +139,7 @@ async def update_company(
 
 
 @router.delete(
-    "/{company-id}",
+    "/{company_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a company",
     description="Delete a company by its ID.",

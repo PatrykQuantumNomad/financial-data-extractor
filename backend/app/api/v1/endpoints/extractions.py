@@ -48,7 +48,7 @@ async def create_extraction(
 
 
 @router.get(
-    "/{extraction-id}",
+    "/{extraction_id}",
     response_model=ExtractionResponse,
     summary="Get extraction by ID",
     description="Get a specific extraction by its ID.",
@@ -73,7 +73,7 @@ async def get_extraction(
 
 
 @router.get(
-    "/documents/{document-id}",
+    "/documents/{document_id}",
     response_model=list[ExtractionResponse],
     summary="List extractions for a document",
     description="Get all extractions for a specific document.",
@@ -98,7 +98,7 @@ async def list_extractions_by_document(
 
 
 @router.get(
-    "/documents/{document-id}/statement-type/{statement-type}",
+    "/documents/{document_id}/statement-type/{statement_type}",
     response_model=ExtractionResponse,
     summary="Get extraction by document and statement type",
     description="Get an extraction for a document by statement type.",
@@ -127,7 +127,7 @@ async def get_extraction_by_document_and_type(
 
 
 @router.put(
-    "/{extraction-id}",
+    "/{extraction_id}",
     response_model=ExtractionResponse,
     summary="Update an extraction",
     description="Update an existing extraction with the provided information.",
@@ -156,7 +156,7 @@ async def update_extraction(
 
 
 @router.delete(
-    "/{extraction-id}",
+    "/{extraction_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete an extraction",
     description="Delete an extraction by its ID.",

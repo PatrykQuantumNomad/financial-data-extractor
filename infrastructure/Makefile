@@ -93,6 +93,7 @@ url-dev:
 	@echo "[DEV] pgAdmin:         http://localhost:5050 (admin@local.dev / adminadmin)"
 	@echo "[DEV] Redis:           redis://localhost:6379"
 	@echo "[DEV] Redis Commander: http://localhost:8081"
+	@echo "[DEV] Flower:           http://localhost:5555 (Celery monitoring)"
 
 health-dev:
 	@echo "Checking DEV container health..."

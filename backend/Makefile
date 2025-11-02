@@ -1,4 +1,4 @@
-.PHONY: help install install-dev clean test test-unit test-integration test-cov lint lint-fix format type-check check run dev migrate migrate-up migrate-down migrate-create shell update-deps update-deps-dev
+.PHONY: help install install-dev clean test test-unit test-integration test-cov lint lint-fix format type-check check run dev migrate migrate-up migrate-down migrate-create shell update-deps update-deps-dev crawl4ai-setup crawl4ai-doctor
 
 # Variables
 PYTHON := uv run python
@@ -22,19 +22,33 @@ help: ## Show this help message
 	@echo ""
 	@echo "$(COLOR_BOLD)Available commands:$(COLOR_RESET)"
 	@echo ""
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(COLOR_CYAN)%-20s$(COLOR_RESET) %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(COLOR_CYAN)%-20s$(COLOR_RESET) %s\n", $$1, $$2}'
 	@echo ""
 
 # Installation
 install: ## Install production dependencies
 	@echo "$(COLOR_GREEN)Installing production dependencies...$(COLOR_RESET)"
 	$(UV) sync --no-dev
+	@echo "$(COLOR_GREEN)Running Crawl4AI post-installation setup...$(COLOR_RESET)"
+	$(UV) run crawl4ai-setup || echo "$(COLOR_YELLOW)Crawl4AI setup had warnings (this may be normal)$(COLOR_RESET)"
 	@echo "$(COLOR_GREEN)✓ Installation complete!$(COLOR_RESET)"
 
 install-dev: ## Install all dependencies including dev tools
 	@echo "$(COLOR_GREEN)Installing all dependencies (including dev)...$(COLOR_RESET)"
 	$(UV) sync --extra dev
+	@echo "$(COLOR_GREEN)Running Crawl4AI post-installation setup...$(COLOR_RESET)"
+	$(UV) run crawl4ai-setup || echo "$(COLOR_YELLOW)Crawl4AI setup had warnings (this may be normal)$(COLOR_RESET)"
 	@echo "$(COLOR_GREEN)✓ Development environment ready!$(COLOR_RESET)"
+
+crawl4ai-setup: ## Run Crawl4AI post-installation setup
+	@echo "$(COLOR_GREEN)Running Crawl4AI setup...$(COLOR_RESET)"
+	$(UV) run crawl4ai-setup
+	@echo "$(COLOR_GREEN)✓ Crawl4AI setup complete!$(COLOR_RESET)"
+
+crawl4ai-doctor: ## Verify Crawl4AI installation
+	@echo "$(COLOR_GREEN)Verifying Crawl4AI installation...$(COLOR_RESET)"
+	$(UV) run crawl4ai-doctor
+	@echo "$(COLOR_GREEN)✓ Crawl4AI verification complete!$(COLOR_RESET)"
 
 clean: ## Clean generated files and caches
 	@echo "$(COLOR_YELLOW)Cleaning up...$(COLOR_RESET)"
