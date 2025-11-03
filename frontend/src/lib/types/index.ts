@@ -48,3 +48,18 @@ export interface TaskStatus {
 }
 
 export type StatementType = "income_statement" | "balance_sheet" | "cash_flow_statement";
+
+export interface StoragePdfFile {
+  object_key: string;
+  size: number;
+  last_modified: string | null;
+  content_type: string;
+}
+
+export interface StoragePdfListResponse {
+  company_id: number;
+  fiscal_year: number | null;
+  prefix: string;
+  count: number;
+  files: StoragePdfFile[];
+}

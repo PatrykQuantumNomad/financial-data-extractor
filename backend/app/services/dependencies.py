@@ -12,6 +12,7 @@ from typing import Annotated
 
 from fastapi import Depends
 
+from app.core.storage import IStorageService, StorageServiceConfig, create_storage_service
 from app.db.dependencies import (
     get_company_repository,
     get_compiled_statement_repository,
@@ -28,6 +29,7 @@ from app.services.company import CompanyService
 from app.services.compiled_statement import CompiledStatementService
 from app.services.document import DocumentService
 from app.services.extraction import ExtractionService
+from config import Settings, get_settings
 
 
 async def get_company_service(
@@ -92,3 +94,31 @@ async def get_compiled_statement_service(
         CompiledStatementService instance.
     """
     return CompiledStatementService(compiled_statement_repository, company_repository)
+
+
+async def get_storage_service(
+    settings: Annotated[Settings, Depends(get_settings)] = None,
+) -> IStorageService:
+    """Dependency function to get IStorageService instance.
+
+    Args:
+        settings: Application settings (injected).
+
+    Returns:
+        IStorageService instance.
+    """
+    from pathlib import Path
+
+    if settings is None:
+        settings = Settings()
+
+    config = StorageServiceConfig(
+        enabled=settings.minio_enabled,
+        endpoint=settings.minio_endpoint,
+        access_key=settings.minio_access_key,
+        secret_key=settings.minio_secret_key,
+        bucket_name=settings.minio_bucket_name,
+        use_ssl=settings.minio_use_ssl,
+        legacy_base_path=Path(settings.pdf_storage_base_path),
+    )
+    return create_storage_service(config)

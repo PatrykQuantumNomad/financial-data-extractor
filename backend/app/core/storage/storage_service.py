@@ -12,6 +12,7 @@ import hashlib
 import io
 import logging
 from abc import ABC, abstractmethod
+from datetime import datetime
 from pathlib import Path
 
 from minio import Minio
@@ -133,6 +134,26 @@ class IStorageService(ABC):
 
         Returns:
             URL string (may be a presigned URL or local path).
+        """
+        pass
+
+    @abstractmethod
+    async def list_files(self, prefix: str = "") -> list[dict]:
+        """
+        List files in storage with optional prefix filter.
+
+        Args:
+            prefix: Prefix to filter files (e.g., "company_1/2023/").
+
+        Returns:
+            List of dictionaries containing file information:
+            - object_key: Full object key/path
+            - size: File size in bytes
+            - last_modified: Last modification timestamp (ISO format string or None)
+            - content_type: MIME type (if available)
+
+        Raises:
+            StorageError: If listing fails.
         """
         pass
 
@@ -295,6 +316,44 @@ class MinIOStorageService(IStorageService):
         protocol = "https" if self.config.use_ssl else "http"
         return f"{protocol}://{self.config.endpoint}/{self.config.bucket_name}/{object_key}"
 
+    async def list_files(self, prefix: str = "") -> list[dict]:
+        """List files in MinIO storage with optional prefix filter."""
+        self._ensure_initialized()
+
+        try:
+            objects = self._client.list_objects(
+                bucket_name=self.config.bucket_name,
+                prefix=prefix,
+                recursive=True,
+            )
+
+            files = []
+            for obj in objects:
+                files.append(
+                    {
+                        "object_key": obj.object_name,
+                        "size": obj.size,
+                        "last_modified": (
+                            obj.last_modified.isoformat() if obj.last_modified else None
+                        ),
+                        "content_type": getattr(obj, "content_type", "application/pdf"),
+                    }
+                )
+
+            logger.debug(
+                f"Listed {len(files)} files from MinIO with prefix '{prefix}'",
+                extra={"prefix": prefix, "count": len(files)},
+            )
+
+            return files
+        except S3Error as e:
+            logger.error(
+                f"Failed to list files from MinIO: {e}",
+                exc_info=True,
+                extra={"prefix": prefix},
+            )
+            raise RuntimeError(f"Failed to list files from MinIO: {e}") from e
+
 
 class LegacyLocalStorageService(IStorageService):
     """Legacy local file system storage service."""
@@ -408,6 +467,61 @@ class LegacyLocalStorageService(IStorageService):
         full_path = self._get_full_path(object_key)
         return str(full_path)
 
+    async def list_files(self, prefix: str = "") -> list[dict]:
+        """List files in local storage with optional prefix filter."""
+        base_path = self._get_full_path(prefix) if prefix else self.base_path
+
+        try:
+            files = []
+            if not base_path.exists():
+                return files
+
+            # If it's a file (not a directory), return it
+            if base_path.is_file():
+                stat = base_path.stat()
+                relative_path = str(base_path.relative_to(self.base_path))
+                # Normalize path separators for consistency
+                object_key = relative_path.replace("\\", "/")
+                files.append(
+                    {
+                        "object_key": object_key,
+                        "size": stat.st_size,
+                        "last_modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                        "content_type": "application/pdf",
+                    }
+                )
+                return files
+
+            # If it's a directory, recursively list files
+            for file_path in base_path.rglob("*.pdf"):
+                if file_path.is_file():
+                    stat = file_path.stat()
+                    relative_path = str(file_path.relative_to(self.base_path))
+                    # Normalize path separators for consistency
+                    object_key = relative_path.replace("\\", "/")
+                    files.append(
+                        {
+                            "object_key": object_key,
+                            "size": stat.st_size,
+                            "last_modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                            "content_type": "application/pdf",
+                        }
+                    )
+
+            logger.debug(
+                f"Listed {len(files)} files from local storage with prefix '{prefix}'",
+                extra={"prefix": prefix, "count": len(files)},
+            )
+
+            return files
+        except Exception as e:
+            logger.error(
+                f"Failed to list files from local storage: {e}",
+                exc_info=True,
+                extra={"prefix": prefix},
+            )
+            raise RuntimeError(f"Failed to list files from local storage: {e}") from e
+
 
 class StorageService(IStorageService):
     """Unified storage service with automatic fallback."""
@@ -463,6 +577,10 @@ class StorageService(IStorageService):
     def get_file_url(self, object_key: str) -> str:
         """Get accessible URL for a file."""
         return self._primary_storage.get_file_url(object_key)
+
+    async def list_files(self, prefix: str = "") -> list[dict]:
+        """List files in storage with optional prefix filter."""
+        return await self._primary_storage.list_files(prefix)
 
 
 def create_storage_service(config: StorageServiceConfig) -> IStorageService:

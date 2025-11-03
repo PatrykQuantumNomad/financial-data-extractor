@@ -6,12 +6,14 @@ Copyright: 2025 Patryk Golabek
 """
 
 from typing import Annotated
+from urllib.parse import unquote
 
-from fastapi import APIRouter, Depends, Path, Query, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from fastapi.responses import JSONResponse, Response
 
+from app.core.storage import IStorageService
 from app.schemas.document import DocumentCreate, DocumentResponse, DocumentUpdate
-from app.services.dependencies import get_document_service
+from app.services.dependencies import get_document_service, get_storage_service
 from app.services.document import DocumentService
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
@@ -204,3 +206,109 @@ async def delete_document(
     """
     await document_service.delete_document(document_id)
     return JSONResponse(content=None, status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get(
+    "/storage/companies/{company_id}",
+    summary="List PDFs from storage for a company",
+    description="List all PDF files stored in MinIO/local storage for a specific company. "
+    "This queries storage directly, not the database.",
+)
+async def list_storage_pdfs_by_company(
+    company_id: Annotated[int, Path(description="Company ID")],
+    storage_service: Annotated[IStorageService, Depends(get_storage_service)],
+    fiscal_year: Annotated[
+        int | None, Query(description="Optional fiscal year filter", ge=1900, le=2100)
+    ] = None,
+) -> JSONResponse:
+    """List all PDFs from storage for a company.
+
+    Args:
+        company_id: Company ID.
+        storage_service: Storage service (injected).
+        fiscal_year: Optional fiscal year to filter by.
+
+    Returns:
+        JSON response with list of PDF files from storage.
+    """
+    # Build prefix to filter files by company (and optionally by year)
+    prefix = f"company_{company_id}"
+    if fiscal_year:
+        prefix = f"{prefix}/{fiscal_year}/"
+    else:
+        prefix = f"{prefix}/"
+
+    files = await storage_service.list_files(prefix=prefix)
+
+    # Format response with additional metadata
+    result = {
+        "company_id": company_id,
+        "fiscal_year": fiscal_year,
+        "prefix": prefix,
+        "count": len(files),
+        "files": files,
+    }
+
+    return JSONResponse(content=result, status_code=status.HTTP_200_OK)
+
+
+@router.get(
+    "/storage/download",
+    summary="Download PDF from storage",
+    description="Download a PDF file from MinIO/local storage by object key.",
+    response_class=Response,
+)
+async def download_storage_pdf(
+    object_key: Annotated[
+        str, Query(description="Object key (path) of the file in storage")
+    ],
+    storage_service: Annotated[IStorageService, Depends(get_storage_service)],
+) -> Response:
+    """Download a PDF file from storage.
+
+    Args:
+        object_key: Object key (path) in storage.
+        storage_service: Storage service (injected).
+
+    Returns:
+        PDF file as binary response.
+
+    Raises:
+        HTTPException: If file not found or retrieval fails.
+    """
+    try:
+        # URL decode the object key in case it was encoded
+        decoded_object_key = unquote(object_key)
+
+        # Check if file exists
+        if not await storage_service.file_exists(decoded_object_key):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"PDF file not found: {decoded_object_key}",
+            )
+
+        # Get file content
+        file_content = await storage_service.get_file(decoded_object_key)
+
+        # Extract filename from object key
+        filename = decoded_object_key.split("/")[-1] or "document.pdf"
+
+        # Return PDF file with proper headers
+        return Response(
+            content=file_content,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'inline; filename="{filename}"',
+                "Content-Length": str(len(file_content)),
+            },
+        )
+    except FileNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve PDF file: {str(e)}",
+        ) from e

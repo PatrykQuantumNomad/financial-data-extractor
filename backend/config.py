@@ -95,3 +95,12 @@ class Settings(BaseSettings):
     app_version: str = Field("1.0.0", description="Version of the FastAPI application.")
 
     model_config = {"env_file": ".env", "frozen": True}
+
+
+def get_settings() -> Settings:
+    """Get application settings instance.
+
+    Returns:
+        Settings instance loaded from environment variables.
+    """
+    return Settings()

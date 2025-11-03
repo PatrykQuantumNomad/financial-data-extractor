@@ -60,7 +60,7 @@ export function CompanyList() {
       {companies.map((company) => (
         <Card
           key={company.id}
-          className="hover:shadow-lg transition-all duration-200 hover:border-primary/50 group"
+          className="hover:shadow-xl transition-all duration-200 hover:border-primary/50 hover:-translate-y-1 group hover:shadow-primary/5"
         >
           <CardHeader>
             <div className="flex items-start justify-between">
