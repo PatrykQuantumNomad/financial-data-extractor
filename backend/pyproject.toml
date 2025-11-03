@@ -26,6 +26,7 @@ dependencies = [
     # PDF Processing
     "pymupdf>=1.24.0,<2.0.0",
     "pdfplumber>=0.11.0,<0.12.0",
+    "camelot-py[base]>=0.11.0,<0.12.0",  # Table extraction
     "pillow>=11.0.0,<12.0.0",
     # LLM Integration
     "openai>=1.51.0,<2.0.0",

@@ -17,6 +17,7 @@ from app.core.storage import StorageServiceConfig, create_storage_service
 from app.tasks.celery_app import celery_app
 from app.tasks.progress import CeleryProgressCallback
 from app.tasks.utils import get_db_context, run_async, validate_task_result
+from app.workers.extraction_worker import ExtractionWorker
 from app.workers.orchestration_worker import OrchestrationWorker
 from config import Settings
 
@@ -97,6 +98,77 @@ def extract_company_financial_data(self: Task, company_id: int) -> dict[str, Any
     except Exception as e:
         logger.error(
             f"Failed extract_company_financial_data task: {e}",
+            extra={"task_id": task_id, "company_id": company_id},
+            exc_info=True,
+        )
+        raise
+
+
+@celery_app.task(
+    bind=True,
+    name="app.tasks.orchestration_tasks.process_all_documents",
+    max_retries=2,
+    default_retry_delay=300,
+    time_limit=7200,  # 2 hours for batch processing
+    soft_time_limit=6900,  # 1h 55min soft limit
+)
+def process_all_documents(self: Task, company_id: int) -> dict[str, Any]:
+    """Process all documents for a company through classify, download, and extract.
+
+    Args:
+        company_id: ID of the company.
+
+    Returns:
+        Dictionary with processing results for all documents.
+    """
+    task_id = self.request.id
+    logger.info(
+        "Starting process_all_documents task",
+        extra={"task_id": task_id, "company_id": company_id},
+    )
+
+    try:
+        # Create progress callback for worker
+        progress_callback = CeleryProgressCallback(self)
+
+        # Get OpenRouter settings
+        settings = Settings()
+
+        # Create worker with database session
+        async def _execute_worker():
+            async with get_db_context() as session:
+                storage_service = create_storage_service_from_config()
+                extraction_worker = ExtractionWorker(
+                    session,
+                    openrouter_api_key=settings.open_router_api_key,
+                    openrouter_model=settings.open_router_model_extraction,
+                    progress_callback=progress_callback,
+                    storage_service=storage_service,
+                )
+                worker = OrchestrationWorker(
+                    session,
+                    extraction_worker=extraction_worker,
+                    progress_callback=progress_callback,
+                    storage_service=storage_service,
+                )
+                return await worker.process_all_documents(company_id)
+
+        result = run_async(_execute_worker())
+
+        # Add task_id to result for consistency
+        result["task_id"] = task_id
+
+        validate_task_result(result, ["task_id", "company_id", "status"])
+        logger.info(
+            "Completed process_all_documents task",
+            extra={"task_id": task_id, "company_id": company_id, "result": result},
+        )
+
+        return result
+
+    except Exception as e:
+        logger.error(
+            f"Failed process_all_documents task: {e}",
             extra={"task_id": task_id, "company_id": company_id},
             exc_info=True,
         )

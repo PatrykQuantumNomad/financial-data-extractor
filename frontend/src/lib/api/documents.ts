@@ -1,5 +1,5 @@
-import { apiClient } from "./client";
 import type { Document } from "../types";
+import { apiClient } from "./client";
 
 export interface StoragePdfFile {
   object_key: string;
@@ -24,8 +24,8 @@ export const documentsApi = {
 
   getByCompany: async (
     companyId: number,
-    skip: number = 0,
-    limit: number = 100
+    skip = 0,
+    limit = 100
   ): Promise<Document[]> => {
     const response = await apiClient.get<Document[]>(
       `/documents/companies/${companyId}`,
@@ -49,8 +49,8 @@ export const documentsApi = {
   getByCompanyAndType: async (
     companyId: number,
     documentType: string,
-    skip: number = 0,
-    limit: number = 100
+    skip = 0,
+    limit = 100
   ): Promise<Document[]> => {
     const response = await apiClient.get<Document[]>(
       `/documents/companies/${companyId}/type/${documentType}`,

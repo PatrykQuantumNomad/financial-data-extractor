@@ -9,7 +9,7 @@ COMPOSE_FILE_DEV := docker/docker-compose.dev.yml
 
 DC_DEV := docker compose -p $(PROJECT_NAME_DEV) -f $(COMPOSE_FILE_DEV)
 
-.PHONY: help up down restart ps logs logs-postgres logs-redis logs-minio stop destroy reset psql redis-cli pgadmin minio url health \
+.PHONY: help up down restart ps logs logs-postgres logs-redis logs-minio stop destroy reset psql redis-cli pgadmin minio prometheus grafana loki url health \
         up-dev down-dev restart-dev ps-dev logs-dev logs-postgres-dev logs-redis-dev logs-minio-dev stop-dev destroy-dev reset-dev
 
 help:
@@ -27,6 +27,9 @@ help:
 	@echo "    make redis-cli      - Open redis-cli to dev Redis"
 	@echo "    make pgadmin        - Open pgAdmin (dev only)"
 	@echo "    make minio          - Open MinIO console (dev only)"
+	@echo "    make prometheus     - Open Prometheus (dev only)"
+	@echo "    make grafana        - Open Grafana (dev only)"
+	@echo "    make loki           - Open Loki (dev only)"
 	@echo "    make url            - Print dev service URLs"
 	@echo "    make health         - Check dev container health"
 	@echo ""
@@ -96,6 +99,15 @@ pgadmin:
 minio:
 	@open http://localhost:9001 || xdg-open http://localhost:9001 || true
 
+prometheus:
+	@open http://localhost:9090 || xdg-open http://localhost:9090 || true
+
+grafana:
+	@open http://localhost:3200 || xdg-open http://localhost:3200 || true
+
+loki:
+	@open http://localhost:3100 || xdg-open http://localhost:3100 || true
+
 url-dev:
 	@echo "[DEV] Postgres:        postgres://postgres:postgres@localhost:5432/financial_data_extractor"
 	@echo "[DEV] pgAdmin:         http://localhost:5050 (admin@local.dev / adminadmin)"
@@ -104,6 +116,11 @@ url-dev:
 	@echo "[DEV] Flower:          http://localhost:5555 (Celery monitoring)"
 	@echo "[DEV] MinIO API:       http://localhost:9000 (S3-compatible)"
 	@echo "[DEV] MinIO Console:   http://localhost:9001 (minioadmin / minioadmin)"
+	@echo ""
+	@echo "[DEV] Observability:"
+	@echo "[DEV]   Prometheus:    http://localhost:9090 (Metrics & Targets)"
+	@echo "[DEV]   Grafana:       http://localhost:3200 (admin / admin)"
+	@echo "[DEV]   Loki:          http://localhost:3100 (Log aggregation)"
 
 health-dev:
 	@echo "Checking DEV container health..."

@@ -14,6 +14,8 @@ from typing import Any
 from celery import Celery
 from celery.signals import setup_logging, worker_ready
 
+# Import metrics module to register Prometheus signal handlers
+from app.tasks import metrics  # noqa: F401
 from config import Settings
 
 # Get settings instance
@@ -150,42 +152,10 @@ def init_db_session(*args: Any, **kwargs: Any) -> None:
     import logging
 
     logger = logging.getLogger(__name__)
-    try:
-        # AsyncSessionLocal is already initialized in app.db.base
-        # No need to pre-warm since sessions are created on-demand
-        logger.info("Database async session factory ready for Celery worker")
 
-        # Test that we can create a session (optional, for validation)
-        async def test_session():
-            try:
-                from sqlalchemy import text
-
-                from app.db.base import AsyncSessionLocal
-
-                # Create a test session and execute a simple query
-                async with AsyncSessionLocal() as session:
-                    await session.execute(text("SELECT 1"))
-                    logger.info("Database session factory validated successfully")
-            except Exception as e:
-                logger.warning(f"Could not validate database session: {e}")
-
-        # Run the test in a new event loop
-        import asyncio
-
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # If loop is running, schedule the test
-                asyncio.create_task(test_session())
-            else:
-                loop.run_until_complete(test_session())
-        except RuntimeError:
-            # No event loop, create one
-            asyncio.run(test_session())
-
-    except Exception as e:
-        logger.error(f"Failed to initialize database session factory: {e}", exc_info=True)
-        # Don't raise - let tasks handle the error when they try to use it
+    # AsyncSessionLocal is already initialized in app.db.base
+    # No need to pre-warm since sessions are created on-demand
+    logger.info("Database async session factory ready for Celery worker")
 
 
 if __name__ == "__main__":

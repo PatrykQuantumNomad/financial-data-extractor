@@ -75,6 +75,7 @@ class ScrapingService:
     def __init__(
         self,
         openrouter_api_key: str | None = None,
+        openrouter_model: str | None = None,
         max_crawl_depth: int = 2,
     ):
         """
@@ -82,9 +83,19 @@ class ScrapingService:
 
         Args:
             openrouter_api_key: Optional OpenRouter API key for LLM extraction.
+            openrouter_model: Optional OpenRouter model to use (defaults to config value).
             max_crawl_depth: Maximum depth for deep crawling (default: 2).
         """
         self.openrouter_api_key = openrouter_api_key
+
+        # Get model from config if not provided
+        if openrouter_model is None:
+            from config import Settings
+
+            settings = Settings()
+            openrouter_model = settings.open_router_model_scraping
+
+        self.openrouter_model = openrouter_model
         self.max_crawl_depth = max_crawl_depth
         self._crawler: AsyncWebCrawler | None = None
 
@@ -380,95 +391,25 @@ class ScrapingService:
         if not result.success:
             return []
 
-        # Use Pydantic model schema (cleaner than manual JSON schema)
         try:
+            # Set temperature=1 only for GPT-5 models, otherwise omit or allow configurable
+            use_gpt5 = self.openrouter_model and "gpt-5" in self.openrouter_model.lower()
+
             llm_config = LLMConfig(
-                provider="openai/gpt-4o-mini",  # More cost-effective model
+                provider=self.openrouter_model,
                 api_token=self.openrouter_api_key,
                 base_url="https://openrouter.ai/api/v1",
             )
 
             # Use Pydantic model's JSON schema directly
+            from app.core.llm.prompts import PDF_DISCOVERY_INSTRUCTION
+
             extraction_strategy = LLMExtractionStrategy(
                 llm_config=llm_config,
                 schema=PDFCollection.model_json_schema(),
                 extraction_type="schema",
-                instruction="""
-                    Find ALL PDFs and PDF-related content on this page. Be thorough and check for multiple patterns.
-
-                    SEARCH PATTERNS - Check for ALL of these:
-
-                    1. DIRECT PDF LINKS:
-                    - URLs ending in .pdf
-                    - Links with 'pdf' in the path
-                    - Example: https://example.com/report.pdf
-
-                    2. SEPARATED DOWNLOAD LINKS:
-                    - Content title in one place, PDF link separate (often to the right or below)
-                    - Look for [PDF], [Download], [View PDF] badges/buttons near titles
-                    - The title link and PDF link are DIFFERENT URLs
-                    Example:
-                    * Title: "Annual Report 2023" → https://example.com/reports/2023
-                    * PDF Link: "[PDF]" → https://example.com/reports/2023/download.pdf
-                    Extract BOTH URLs: primary_url = title link, download_url = PDF link
-
-                    3. PDF VIEWER PAGES:
-                    - URLs containing /pdf/, /viewer/, /reader/ in the path
-                    - URLs with 'pdf' parameter: ?format=pdf, ?type=pdf
-                    - Example: https://onlinelibrary.wiley.com/doi/pdf/10.1155/2021/8812542
-                    - Example: https://example.com/viewer?doc=12345
-
-                    4. DOWNLOAD BUTTONS/LINKS:
-                    -Text containing: "Download", "PDF", "Get PDF", "View PDF", "Télécharger", "Herunterladen"
-                    - Often styled as buttons or prominent links
-                    - May have icons (download icon, PDF icon)
-
-                    5. EMBEDDED PDFs:
-                    - iframes, object, or embed tags pointing to PDFs
-                    - Data URLs containing PDF content
-
-                    6. JAVASCRIPT/DYNAMIC LINKS:
-                    - onclick handlers that download PDFs
-                    - data-url or data-href attributes with PDF paths
-                    - API endpoints like /api/download?id=123
-
-                    EXTRACTION RULES:
-
-                    A. For each PDF found, determine:
-                    - title: The name/description of the document
-                    - primary_url: Main link (article page, product page, etc.)
-                    - download_url: Direct PDF download link IF DIFFERENT from primary_url
-                    - link_text: Actual text of the link/button (e.g., "[PDF] aaai.org", "Download Annual Report", "Q4 2023 Results")
-                    - context: Nearby text that provides context (author, date, description)
-                    - pdf_indicator: How you found it (see categories above)
-
-                    B. CRITICAL - Handle separated links:
-                    If a document title and its PDF download link are in different places:
-                    - Set primary_url = the title's link (viewer/article page)
-                    - Set download_url = the separate PDF download link
-                    - Set link_text = the text of the PDF download link
-
-                    Example from an investor relations page:
-                    ```
-                    Annual Report 2023                    [PDF] [Excel]
-                    Quarterly Results Q4 2023            Download PDF
-                    ```
-                    Extract as:
-                    {
-                        "title": "Annual Report 2023",
-                        "primary_url": "https://example.com/investor/annual-report-2023",
-                        "download_url": "https://example.com/files/annual-report-2023.pdf",
-                        "link_text": "[PDF]",
-                        "pdf_indicator": "pdf_badge"
-                    }
-
-                    C. Year extraction:
-                    - Look in: title, URL, filename, surrounding text
-                    - Formats: 2023, 2022-2023, FY2023, Q4 2023
-                    - Extract the most recent/relevant year
-
-                    Return empty array if no PDFs found.
-                    """,
+                instruction=PDF_DISCOVERY_INSTRUCTION,
+                extra_args={"temperature": 1} if use_gpt5 else None,
             )
 
             # Re-run crawler with LLM extraction on the same page
@@ -758,14 +699,19 @@ class ScrapingService:
                 if not url.startswith(("http://", "https://")):
                     url = urljoin(base_url, url)
 
+                # Normalize empty strings to None for optional fields
+                # Handle None, empty strings, and whitespace-only strings
+                title = (pdf_link.title or "").strip() or None
+                description = (pdf_link.document_type or "").strip() or None
+
                 pdfs.append(
                     DiscoveredPDF(
                         url=url,
                         filename=self._extract_filename(url),
                         fiscal_year=pdf_link.year,
-                        document_type=pdf_link.document_type,
-                        title=pdf_link.title,
-                        description=pdf_link.document_type or "",
+                        document_type=pdf_link.document_type or "unknown",
+                        title=title,
+                        description=description,
                         confidence=0.95,  # High confidence for LLM extraction
                     )
                 )

@@ -30,12 +30,13 @@ export default async function StatementPage({ params }: PageProps) {
   // Validate company exists at page level - if company doesn't exist, show 404
   try {
     await companiesApi.getById(companyId);
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (
       typeof error === "object" &&
       error !== null &&
       "status" in error &&
-      (error as any).status === 404
+      typeof (error as { status: unknown }).status === "number" &&
+      (error as { status: number }).status === 404
     ) {
       notFound();
     }

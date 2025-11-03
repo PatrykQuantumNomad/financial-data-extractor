@@ -84,7 +84,7 @@ export function useTasksStatus(taskIds: string[]) {
 
 // Mutation hooks for triggering tasks
 export function useTriggerExtractCompany(options?: {
-  onSuccess?: (data: any, companyId: number) => void;
+  onSuccess?: (data: unknown, companyId: number) => void;
   onError?: (error: unknown) => void;
 }) {
   const queryClient = useQueryClient();
@@ -94,9 +94,9 @@ export function useTriggerExtractCompany(options?: {
       tasksApi.triggerExtractCompany(companyId),
     onSuccess: (data, companyId) => {
       // Invalidate related queries after extraction
-      queryClient.invalidateQueries({ queryKey: companyKeys.all });
-      queryClient.invalidateQueries({ queryKey: documentKeys.all });
-      queryClient.invalidateQueries({ queryKey: statementKeys.all });
+      void queryClient.invalidateQueries({ queryKey: companyKeys.all });
+      void queryClient.invalidateQueries({ queryKey: documentKeys.all });
+      void queryClient.invalidateQueries({ queryKey: statementKeys.all });
 
       options?.onSuccess?.(data, companyId);
     },
@@ -105,7 +105,7 @@ export function useTriggerExtractCompany(options?: {
 }
 
 export function useTriggerScrapeCompany(options?: {
-  onSuccess?: (data: any, companyId: number) => void;
+  onSuccess?: (data: unknown, companyId: number) => void;
   onError?: (error: unknown) => void;
 }) {
   const queryClient = useQueryClient();
@@ -113,7 +113,25 @@ export function useTriggerScrapeCompany(options?: {
   return useMutation({
     mutationFn: (companyId: number) => tasksApi.triggerScrapeCompany(companyId),
     onSuccess: (data, companyId) => {
-      queryClient.invalidateQueries({ queryKey: documentKeys.all });
+      void queryClient.invalidateQueries({ queryKey: documentKeys.all });
+      options?.onSuccess?.(data, companyId);
+    },
+    onError: options?.onError,
+  });
+}
+
+export function useTriggerProcessAllDocuments(options?: {
+  onSuccess?: (data: unknown, companyId: number) => void;
+  onError?: (error: unknown) => void;
+}) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (companyId: number) =>
+      tasksApi.triggerProcessAllDocuments(companyId),
+    onSuccess: (data, companyId) => {
+      void queryClient.invalidateQueries({ queryKey: documentKeys.all });
+      void queryClient.invalidateQueries({ queryKey: statementKeys.all });
       options?.onSuccess?.(data, companyId);
     },
     onError: options?.onError,
@@ -121,7 +139,7 @@ export function useTriggerScrapeCompany(options?: {
 }
 
 export function useTriggerRecompileCompany(options?: {
-  onSuccess?: (data: any, companyId: number) => void;
+  onSuccess?: (data: unknown, companyId: number) => void;
   onError?: (error: unknown) => void;
 }) {
   const queryClient = useQueryClient();
@@ -130,7 +148,7 @@ export function useTriggerRecompileCompany(options?: {
     mutationFn: (companyId: number) =>
       tasksApi.triggerRecompileCompany(companyId),
     onSuccess: (data, companyId) => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: statementKeys.byCompany(companyId),
       });
       options?.onSuccess?.(data, companyId);
@@ -140,7 +158,7 @@ export function useTriggerRecompileCompany(options?: {
 }
 
 export function useTriggerDownloadDocument(options?: {
-  onSuccess?: (data: any, documentId: number) => void;
+  onSuccess?: (data: unknown, documentId: number) => void;
   onError?: (error: unknown) => void;
 }) {
   const queryClient = useQueryClient();
@@ -149,7 +167,7 @@ export function useTriggerDownloadDocument(options?: {
     mutationFn: (documentId: number) =>
       tasksApi.triggerDownloadDocument(documentId),
     onSuccess: (data, documentId) => {
-      queryClient.invalidateQueries({ queryKey: documentKeys.all });
+      void queryClient.invalidateQueries({ queryKey: documentKeys.all });
       options?.onSuccess?.(data, documentId);
     },
     onError: options?.onError,
@@ -157,7 +175,7 @@ export function useTriggerDownloadDocument(options?: {
 }
 
 export function useTriggerClassifyDocument(options?: {
-  onSuccess?: (data: any, documentId: number) => void;
+  onSuccess?: (data: unknown, documentId: number) => void;
   onError?: (error: unknown) => void;
 }) {
   const queryClient = useQueryClient();
@@ -166,7 +184,7 @@ export function useTriggerClassifyDocument(options?: {
     mutationFn: (documentId: number) =>
       tasksApi.triggerClassifyDocument(documentId),
     onSuccess: (data, documentId) => {
-      queryClient.invalidateQueries({ queryKey: documentKeys.all });
+      void queryClient.invalidateQueries({ queryKey: documentKeys.all });
       options?.onSuccess?.(data, documentId);
     },
     onError: options?.onError,
@@ -174,7 +192,7 @@ export function useTriggerClassifyDocument(options?: {
 }
 
 export function useTriggerExtractDocument(options?: {
-  onSuccess?: (data: any, documentId: number) => void;
+  onSuccess?: (data: unknown, documentId: number) => void;
   onError?: (error: unknown) => void;
 }) {
   const queryClient = useQueryClient();
@@ -183,8 +201,8 @@ export function useTriggerExtractDocument(options?: {
     mutationFn: (documentId: number) =>
       tasksApi.triggerExtractDocument(documentId),
     onSuccess: (data, documentId) => {
-      queryClient.invalidateQueries({ queryKey: documentKeys.all });
-      queryClient.invalidateQueries({ queryKey: statementKeys.all });
+      void queryClient.invalidateQueries({ queryKey: documentKeys.all });
+      void queryClient.invalidateQueries({ queryKey: statementKeys.all });
       options?.onSuccess?.(data, documentId);
     },
     onError: options?.onError,
@@ -192,7 +210,7 @@ export function useTriggerExtractDocument(options?: {
 }
 
 export function useTriggerProcessDocument(options?: {
-  onSuccess?: (data: any, documentId: number) => void;
+  onSuccess?: (data: unknown, documentId: number) => void;
   onError?: (error: unknown) => void;
 }) {
   const queryClient = useQueryClient();
@@ -201,8 +219,8 @@ export function useTriggerProcessDocument(options?: {
     mutationFn: (documentId: number) =>
       tasksApi.triggerProcessDocument(documentId),
     onSuccess: (data, documentId) => {
-      queryClient.invalidateQueries({ queryKey: documentKeys.all });
-      queryClient.invalidateQueries({ queryKey: statementKeys.all });
+      void queryClient.invalidateQueries({ queryKey: documentKeys.all });
+      void queryClient.invalidateQueries({ queryKey: statementKeys.all });
       options?.onSuccess?.(data, documentId);
     },
     onError: options?.onError,

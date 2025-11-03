@@ -1,16 +1,30 @@
 "use client";
 
-import { useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { useTaskStatus } from "@/lib/hooks";
 import type { TaskStatus } from "@/lib/types";
-import { Loader2, CheckCircle2, XCircle, Clock, X, type LucideIcon } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock,
+  Loader2,
+  X,
+  XCircle,
+  type LucideIcon,
+} from "lucide-react";
+import { useEffect } from "react";
 
 interface TaskStatusMonitorProps {
   taskId: string;
   onComplete?: () => void;
+  onSuccess?: () => void;
 }
 
 const STATUS_COLORS: Partial<Record<TaskStatus["status"], string>> = {
@@ -31,21 +45,31 @@ const STATUS_ICONS: Partial<Record<TaskStatus["status"], LucideIcon>> = {
   REVOKED: XCircle,
 };
 
-export function TaskStatusMonitor({ taskId, onComplete }: TaskStatusMonitorProps) {
+export function TaskStatusMonitor({
+  taskId,
+  onComplete,
+  onSuccess,
+}: TaskStatusMonitorProps) {
   const { data: status, isLoading } = useTaskStatus(taskId);
 
   useEffect(() => {
-    if (status && (status.status === "SUCCESS" || status.status === "FAILURE")) {
-      if (onComplete) {
-        // Auto-hide after showing completion state for 5 seconds
-        // This gives user time to see the result
-        const timer = setTimeout(() => {
-          onComplete();
-        }, 5000);
-        return () => clearTimeout(timer);
+    if (status) {
+      // Call onSuccess callback when task succeeds (before auto-hide)
+      if (status.status === "SUCCESS" && onSuccess) {
+        onSuccess();
+      }
+
+      // Auto-hide after showing completion state for 5 seconds
+      if (status.status === "SUCCESS" || status.status === "FAILURE") {
+        if (onComplete) {
+          const timer = setTimeout(() => {
+            onComplete();
+          }, 5000);
+          return () => clearTimeout(timer);
+        }
       }
     }
-  }, [status, onComplete]);
+  }, [status, onComplete, onSuccess]);
 
   const handleDismiss = () => {
     if (onComplete) {
@@ -59,7 +83,9 @@ export function TaskStatusMonitor({ taskId, onComplete }: TaskStatusMonitorProps
         <CardContent className="pt-6">
           <div className="flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-sm text-muted-foreground">Loading task status...</span>
+            <span className="text-sm text-muted-foreground">
+              Loading task status...
+            </span>
           </div>
         </CardContent>
       </Card>
@@ -70,8 +96,9 @@ export function TaskStatusMonitor({ taskId, onComplete }: TaskStatusMonitorProps
     return null;
   }
 
-  const StatusIcon = STATUS_ICONS[status.status] || Clock;
-  const statusColor = STATUS_COLORS[status.status] || "bg-gray-100 text-gray-800 border-gray-200";
+  const StatusIcon = STATUS_ICONS[status.status] ?? Clock;
+  const statusColor =
+    STATUS_COLORS[status.status] ?? "bg-gray-100 text-gray-800 border-gray-200";
 
   const isComplete = status.status === "SUCCESS" || status.status === "FAILURE";
 
@@ -103,7 +130,9 @@ export function TaskStatusMonitor({ taskId, onComplete }: TaskStatusMonitorProps
       <CardContent className="space-y-4">
         {status.status === "SUCCESS" && status.result && (
           <div className="rounded-md bg-green-50 border border-green-200 p-3">
-            <p className="text-sm font-medium text-green-900">Task completed successfully!</p>
+            <p className="text-sm font-medium text-green-900">
+              Task completed successfully!
+            </p>
             {typeof status.result === "object" && (
               <pre className="mt-2 text-xs text-green-800 overflow-auto">
                 {JSON.stringify(status.result, null, 2)}
@@ -119,12 +148,15 @@ export function TaskStatusMonitor({ taskId, onComplete }: TaskStatusMonitorProps
           </div>
         )}
 
-        {(status.status === "PENDING" || status.status === "STARTED" || status.status === "RETRY") && (
+        {(status.status === "PENDING" ||
+          status.status === "STARTED" ||
+          status.status === "RETRY") && (
           <div className="rounded-md bg-blue-50 border border-blue-200 p-3">
             <div className="flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
               <p className="text-sm text-blue-900">
-                {status.status === "PENDING" && "Task is queued and waiting to start..."}
+                {status.status === "PENDING" &&
+                  "Task is queued and waiting to start..."}
                 {status.status === "STARTED" && "Task is running..."}
                 {status.status === "RETRY" && "Task is being retried..."}
               </p>
@@ -134,7 +166,8 @@ export function TaskStatusMonitor({ taskId, onComplete }: TaskStatusMonitorProps
 
         {status.status === "SUCCESS" && (
           <p className="text-sm text-muted-foreground">
-            This panel will auto-dismiss in a few seconds. You may need to refresh the page to see updated data.
+            Task completed! Data will be refreshed automatically. This panel
+            will auto-dismiss in a few seconds.
           </p>
         )}
 

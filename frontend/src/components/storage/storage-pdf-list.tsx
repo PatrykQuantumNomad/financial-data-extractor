@@ -18,6 +18,7 @@ import { format } from "date-fns";
 import {
   Building2,
   Calendar,
+  ChevronRight,
   ExternalLink,
   FileText,
   Filter,
@@ -136,10 +137,10 @@ export function StoragePdfList({
                 <Button
                   key={company.id}
                   variant={isSelected ? "default" : "outline"}
-                  className={`w-full justify-start transition-all duration-200 relative ${
+                  className={`w-full justify-start transition-all duration-200 relative group ${
                     isSelected
-                      ? "bg-primary text-primary-foreground shadow-lg border-2 border-primary-foreground/30 font-semibold ring-2 ring-primary ring-offset-2"
-                      : "hover:bg-accent hover:text-accent-foreground"
+                      ? "bg-primary text-primary-foreground shadow-lg border-2 border-primary-foreground/30 font-semibold ring-2 ring-primary ring-offset-2 hover:shadow-xl hover:scale-[1.02] hover:bg-primary/90 active:scale-[0.98]"
+                      : "hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
                   }`}
                   onClick={() => handleCompanyChange(company)}
                 >
@@ -147,13 +148,20 @@ export function StoragePdfList({
                     <span className="absolute left-0 top-0 bottom-0 w-1 bg-primary-foreground/60 rounded-r" />
                   )}
                   <Building2
-                    className={`mr-2 h-4 w-4 ${
+                    className={`mr-2 h-4 w-4 flex-shrink-0 ${
                       isSelected ? "text-primary-foreground" : ""
                     }`}
                   />
-                  <span className={isSelected ? "font-semibold" : ""}>
+                  <span className={`flex-1 text-left ${isSelected ? "font-semibold" : ""}`}>
                     {company.name}
                   </span>
+                  <ChevronRight
+                    className={`h-4 w-4 flex-shrink-0 ml-auto transition-opacity duration-200 ${
+                      isSelected
+                        ? "text-primary-foreground opacity-100"
+                        : "opacity-0 group-hover:opacity-100"
+                    }`}
+                  />
                 </Button>
               );
             })}
@@ -182,6 +190,11 @@ export function StoragePdfList({
                     <Button
                       variant={fiscalYear === undefined ? "default" : "outline"}
                       onClick={() => handleFiscalYearChange(undefined)}
+                      className={`transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${
+                        fiscalYear === undefined
+                          ? "hover:bg-primary/90"
+                          : "hover:bg-accent hover:text-accent-foreground"
+                      }`}
                     >
                       All Years
                     </Button>
@@ -190,6 +203,11 @@ export function StoragePdfList({
                         key={year}
                         variant={fiscalYear === year ? "default" : "outline"}
                         onClick={() => handleFiscalYearChange(year)}
+                        className={`transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${
+                          fiscalYear === year
+                            ? "hover:bg-primary/90"
+                            : "hover:bg-accent hover:text-accent-foreground"
+                        }`}
                       >
                         {year}
                       </Button>

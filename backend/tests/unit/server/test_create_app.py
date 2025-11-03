@@ -12,9 +12,10 @@ Copyright: 2025 Patryk Golabek
 from unittest.mock import MagicMock
 
 import pytest
-from app import create_app
 from fastapi import FastAPI
 from pytest_mock import MockerFixture
+
+from app import create_app
 
 
 @pytest.fixture(name="mock_logger")

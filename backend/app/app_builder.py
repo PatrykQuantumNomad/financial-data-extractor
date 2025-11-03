@@ -14,8 +14,6 @@ import os
 import platform
 from typing import Any
 
-from app.api.middleware.fastapi_error_handler import ErrorHandler
-from config import Settings
 from fastapi import FastAPI, Request
 from fastapi import __version__ as fastapi_version
 from fastapi.encoders import jsonable_encoder
@@ -23,11 +21,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from prometheus_client import Info
 from starlette_exporter import PrometheusMiddleware, handle_metrics
-from starlette_exporter.optional_metrics import (request_body_size,
-                                                 response_body_size)
+from starlette_exporter.optional_metrics import request_body_size, response_body_size
 
-from .api.middleware.request_context import (RequestIDMiddleware,
-                                             TimeoutMiddleware)
+from app.api.middleware.fastapi_error_handler import ErrorHandler
+from config import Settings
+
+from .api.middleware.request_context import RequestIDMiddleware, TimeoutMiddleware
 from .lifespan import LifespanManager
 from .utils.file_utils import load_json_file
 from .utils.log_filter import SuppressSpecificLogEntries

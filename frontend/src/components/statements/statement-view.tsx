@@ -1,17 +1,28 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { documentsApi } from "@/lib/api/documents";
+import type {
+  Company,
+  CompiledStatement,
+  Document,
+  StatementType,
+} from "@/lib/types";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import React from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FinancialStatementTable } from "./financial-statement-table";
-import { StatementTypeNav } from "./statement-type-nav";
 import { DocumentList } from "../documents/document-list";
 import { ExtractionControls } from "../extraction/extraction-controls";
-import { documentsApi } from "@/lib/api/documents";
-import type { Company, CompiledStatement, StatementType, Document } from "@/lib/types";
-import { ArrowLeft } from "lucide-react";
+import { FinancialStatementTable } from "./financial-statement-table";
+import { StatementTypeNav } from "./statement-type-nav";
 
 interface StatementViewProps {
   company: Company;
@@ -25,7 +36,11 @@ const STATEMENT_LABELS: Record<StatementType, string> = {
   cash_flow_statement: "Cash Flow Statement",
 };
 
-export function StatementView({ company, statement, statementType }: StatementViewProps) {
+export function StatementView({
+  company,
+  statement,
+  statementType,
+}: StatementViewProps) {
   const [documents, setDocuments] = React.useState<Document[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -41,7 +56,7 @@ export function StatementView({ company, statement, statementType }: StatementVi
       }
     }
 
-    loadDocuments();
+    void loadDocuments();
   }, [company.id]);
 
   return (
@@ -55,7 +70,7 @@ export function StatementView({ company, statement, statementType }: StatementVi
         </Link>
         <h1 className="text-3xl font-bold">{company.name}</h1>
         <p className="text-muted-foreground mt-1">
-          {company.primary_ticker || "N/A"} • Financial Statements
+          {company.primary_ticker ?? "N/A"} • Financial Statements
         </p>
       </div>
 
@@ -64,7 +79,9 @@ export function StatementView({ company, statement, statementType }: StatementVi
       <Tabs defaultValue="statement" className="w-full">
         <TabsList>
           <TabsTrigger value="statement">Financial Statement</TabsTrigger>
-          <TabsTrigger value="documents">Documents ({documents.length})</TabsTrigger>
+          <TabsTrigger value="documents">
+            Documents ({documents.length})
+          </TabsTrigger>
           <TabsTrigger value="extract">Extract Data</TabsTrigger>
         </TabsList>
 
@@ -94,7 +111,11 @@ export function StatementView({ company, statement, statementType }: StatementVi
         </TabsContent>
 
         <TabsContent value="documents">
-          <DocumentList companyId={company.id} documents={documents} loading={loading} />
+          <DocumentList
+            companyId={company.id}
+            documents={documents}
+            loading={loading}
+          />
         </TabsContent>
 
         <TabsContent value="extract">

@@ -7,15 +7,14 @@ Author: Patryk Golabek
 Copyright: 2025 Patryk Golabek
 """
 
-import io
-import json
 import logging
-from pathlib import Path
 from typing import Any
 
-from openai import OpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.llm.client import OpenRouterClient
+from app.core.llm.extractor import FinancialStatementExtractor
+from app.core.pdf.extractor import PDFExtractor
 from app.core.storage import IStorageService
 from app.db.repositories.document import DocumentRepository
 from app.db.repositories.extraction import ExtractionRepository
@@ -36,24 +35,43 @@ class ExtractionWorker(BaseWorker):
     def __init__(
         self,
         session: AsyncSession,
-        openai_client: OpenAI | None = None,
+        openrouter_api_key: str | None = None,
         progress_callback: Any | None = None,
         storage_service: IStorageService | None = None,
+        openrouter_model: str | None = None,
     ):
         """Initialize extraction worker.
 
         Args:
             session: Database async session.
-            openai_client: Optional OpenAI client (will be created if not provided).
+            openrouter_api_key: Optional OpenRouter API key (will be loaded from config if not provided).
             progress_callback: Optional callback for progress updates.
             storage_service: Optional storage service for PDF files.
+            openrouter_model: Optional model to use via OpenRouter (defaults to open_router_model_extraction from config).
         """
         super().__init__(progress_callback)
         self.session = session
         self.document_repo = DocumentRepository(session)
         self.extraction_repo = ExtractionRepository(session)
-        self.openai_client = openai_client
         self.storage_service = storage_service
+
+        # Initialize OpenRouter client
+        from config import Settings
+
+        settings = Settings()
+        if not openrouter_api_key:
+            openrouter_api_key = settings.open_router_api_key
+
+        # Get model from config if not provided
+        if openrouter_model is None:
+            openrouter_model = settings.open_router_model_extraction
+
+        self.openrouter_client = OpenRouterClient(
+            api_key=openrouter_api_key,
+            default_model=openrouter_model,
+        )
+        self.extractor = FinancialStatementExtractor(self.openrouter_client, model=openrouter_model)
+        self.pdf_extractor = PDFExtractor()
 
     async def extract_financial_statements(self, document_id: int) -> dict[str, Any]:
         """Extract financial statements from a PDF document using LLM.
@@ -90,13 +108,42 @@ class ExtractionWorker(BaseWorker):
 
         self.update_progress("processing_pdf")
 
-        # Process PDF and extract text/tables
+        # Get company name for extraction
+        from app.db.repositories.company import CompanyRepository
+
+        company_repo = CompanyRepository(self.session)
+        company = await company_repo.get_by_id(document_data.company_id)
+        company_name = company.name if company else "Unknown Company"
+
+        # Process PDF and extract text/tables using PDFExtractor
         extracted_content = await self._process_pdf(file_path)
 
         self.update_progress("calling_llm")
 
-        # Extract financial statements using LLM
-        statements_data = await self._extract_with_llm(extracted_content)
+        # Extract financial statements using FinancialStatementExtractor
+        statement_types = ["income_statement", "balance_sheet", "cash_flow_statement"]
+        statements_data = {}
+
+        for stmt_type in statement_types:
+            try:
+                extraction = await self.extractor.extract_statement(
+                    extracted_content=extracted_content,
+                    statement_type=stmt_type,
+                    company_name=company_name,
+                    fiscal_year=document_data.fiscal_year,
+                    fiscal_year_end=f"{document_data.fiscal_year}-12-31",
+                )
+
+                # Convert to dict format for storage
+                statements_data[stmt_type] = extraction.to_dict()
+
+            except Exception as e:
+                self.logger.warning(
+                    f"Failed to extract {stmt_type}: {e}",
+                    extra={"document_id": document_id, "statement_type": stmt_type},
+                    exc_info=True,
+                )
+                # Continue with other statement types
 
         self.update_progress("storing_extractions")
 
@@ -156,7 +203,7 @@ class ExtractionWorker(BaseWorker):
     # Helper methods
 
     async def _process_pdf(self, file_path: str) -> dict[str, Any]:
-        """Process PDF file and extract text/tables.
+        """Process PDF file and extract text/tables using PDFExtractor.
 
         Handles both local file paths and object storage keys.
 
@@ -166,179 +213,23 @@ class ExtractionWorker(BaseWorker):
         Returns:
             Dictionary with extracted content and metadata.
         """
-        try:
-            import fitz  # PyMuPDF
+        from pathlib import Path
 
-            # Determine if this is a local path or object storage key
-            local_path = Path(file_path)
-            is_local_file = local_path.exists()
+        # Determine if this is a local path or object storage key
+        local_path = Path(file_path)
+        is_local_file = local_path.exists()
 
-            if is_local_file:
-                # Legacy local file handling
-                doc = fitz.open(str(local_path))
-            elif self.storage_service:
-                # Object storage handling
-                file_content = await self.storage_service.get_file(file_path)
-                doc = fitz.open(stream=io.BytesIO(file_content), filetype="pdf")
-            else:
-                raise ValueError(
-                    f"Cannot open PDF: {file_path} (not local file and no storage service)"
-                )
-
-            text_content = []
-            tables = []
-            page_count = len(doc)
-
-            for page_num in range(page_count):
-                page = doc[page_num]
-                text_content.append(page.get_text())
-
-                # TODO: Extract tables from page
-                # This requires table detection logic
-
-            doc.close()
-
-            return {
-                "text": "\n\n".join(text_content),
-                "tables": tables,
-                "page_count": page_count,
-            }
-        except ImportError:
-            self.logger.warning("PyMuPDF not available, using basic text extraction")
-            # Fallback: return minimal structure
-            return {
-                "text": "",
-                "tables": [],
-                "page_count": 0,
-            }
-
-    async def _extract_with_llm(
-        self, extracted_content: dict[str, Any]
-    ) -> dict[str, dict[str, Any]]:
-        """Extract financial statements using OpenAI GPT.
-
-        Args:
-            extracted_content: Dictionary with PDF text and tables.
-
-        Returns:
-            Dictionary with statement types as keys and extracted data as values.
-        """
-        if not self.openai_client:
-            from config import Settings
-
-            settings = Settings()
-            self.openai_client = OpenAI(api_key=settings.openai_api_key)
-
-        # Build prompt for financial statement extraction
-        prompt = self._build_extraction_prompt(extracted_content)
-
-        # Call OpenAI API
-        response = self.openai_client.chat.completions.create(
-            model="gpt-4-turbo-preview",  # Will use GPT-5 when available
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a financial data extraction expert. "
-                        "Extract Income Statement, Balance Sheet, and Cash Flow Statement data "
-                        "from the provided document content. Return structured JSON with all line items and values."
-                    ),
-                },
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.0,  # Deterministic output
-            response_format={"type": "json_object"},
-            max_tokens=8000,
-        )
-
-        # Parse response
-        content = response.choices[0].message.content
-        if not content:
-            raise ValueError("Empty response from LLM")
-
-        statements_data = json.loads(content)
-
-        # Validate and normalize structure
-        normalized_data = self._normalize_llm_response(statements_data)
-
-        return normalized_data
-
-    def _build_extraction_prompt(self, extracted_content: dict[str, Any]) -> str:
-        """Build prompt for LLM extraction.
-
-        Args:
-            extracted_content: Dictionary with PDF text and tables.
-
-        Returns:
-            Formatted prompt string.
-        """
-        text = extracted_content.get("text", "")
-        # Limit text length to avoid token limits
-        # TODO: Implement smart truncation (focus on financial statement sections)
-        text_preview = text[:50000] if len(text) > 50000 else text
-
-        prompt = f"""Extract financial statements from the following document content.
-
-Extract three types of financial statements:
-1. Income Statement (also called P&L or Statement of Operations)
-2. Balance Sheet (also called Statement of Financial Position)
-3. Cash Flow Statement (also called Statement of Cash Flows)
-
-For each statement, extract:
-- All line items with their values
-- Years/periods present in the statement
-- Unit (e.g., millions, thousands)
-- Currency
-
-Return JSON in this format:
-{{
-    "income_statement": {{
-        "line_items": [
-            {{"name": "Revenue", "2023": 1000, "2022": 900, "unit": "millions", "currency": "EUR"}},
-            ...
-        ],
-        "years": [2023, 2022, 2021],
-        "unit": "millions",
-        "currency": "EUR"
-    }},
-    "balance_sheet": {{...}},
-    "cash_flow_statement": {{...}}
-}}
-
-Document content:
-{text_preview}
-"""
-
-        return prompt
-
-    def _normalize_llm_response(self, statements_data: dict[str, Any]) -> dict[str, dict[str, Any]]:
-        """Normalize LLM response to expected structure.
-
-        Args:
-            statements_data: Raw LLM response.
-
-        Returns:
-            Normalized dictionary with statement types as keys.
-        """
-        normalized = {}
-        statement_types = ["income_statement", "balance_sheet", "cash_flow_statement"]
-
-        for stmt_type in statement_types:
-            if stmt_type in statements_data:
-                normalized[stmt_type] = statements_data[stmt_type]
-            else:
-                # Try alternative names
-                alternatives = {
-                    "income_statement": ["income", "profit_loss", "pl", "operations"],
-                    "balance_sheet": ["balance", "financial_position"],
-                    "cash_flow_statement": ["cash_flow", "cashflow", "cash"],
-                }
-                for alt in alternatives.get(stmt_type, []):
-                    if alt in statements_data:
-                        normalized[stmt_type] = statements_data[alt]
-                        break
-
-        return normalized
+        if is_local_file:
+            # Local file handling
+            return await self.pdf_extractor.extract_from_path(file_path)
+        elif self.storage_service:
+            # Object storage handling
+            file_content = await self.storage_service.get_file(file_path)
+            return await self.pdf_extractor.extract_from_storage(file_content, file_path)
+        else:
+            raise ValueError(
+                f"Cannot open PDF: {file_path} (not local file and no storage service)"
+            )
 
     async def _store_extractions(
         self, document_id: int, statements_data: dict[str, dict[str, Any]]
@@ -364,6 +255,8 @@ Document content:
         for stmt_type_key, stmt_data in statements_data.items():
             db_stmt_type = type_mapping.get(stmt_type_key, stmt_type_key)
 
+            # Store raw_data in format expected by database
+            # The stmt_data is already a dict from to_dict()
             extraction = await self.extraction_repo.create(
                 document_id=document_id,
                 statement_type=db_stmt_type,

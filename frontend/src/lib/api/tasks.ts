@@ -16,6 +16,15 @@ export const tasksApi = {
     return response.data;
   },
 
+  triggerProcessAllDocuments: async (
+    companyId: number
+  ): Promise<TaskResponse> => {
+    const response = await apiClient.post<TaskResponse>(
+      `/tasks/companies/${companyId}/process-documents`
+    );
+    return response.data;
+  },
+
   triggerRecompileCompany: async (
     companyId: number
   ): Promise<TaskResponse> => {

@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
-import { documentsApi } from "@/lib/api/documents";
 import type { ApiError } from "@/lib/api/client";
+import { documentsApi } from "@/lib/api/documents";
+import { useQuery } from "@tanstack/react-query";
 
 // Query keys
 export const documentKeys = {
@@ -9,8 +9,18 @@ export const documentKeys = {
   byCompany: (companyId: number, filters?: Record<string, unknown>) =>
     [...documentKeys.lists(), "company", companyId, filters] as const,
   byCompanyAndYear: (companyId: number, fiscalYear: number) =>
-    [...documentKeys.lists(), "company", companyId, "year", fiscalYear] as const,
-  byCompanyAndType: (companyId: number, documentType: string, filters?: Record<string, unknown>) =>
+    [
+      ...documentKeys.lists(),
+      "company",
+      companyId,
+      "year",
+      fiscalYear,
+    ] as const,
+  byCompanyAndType: (
+    companyId: number,
+    documentType: string,
+    filters?: Record<string, unknown>
+  ) =>
     [
       ...documentKeys.lists(),
       "company",
@@ -28,7 +38,7 @@ export function useDocument(id: number) {
     queryKey: documentKeys.detail(id),
     queryFn: () => documentsApi.getById(id),
     enabled: !!id && !isNaN(id),
-    retry: (failureCount, error: any) => {
+    retry: (failureCount, error: unknown) => {
       // Don't retry on 404 errors (document doesn't exist)
       if ((error as ApiError)?.status === 404) {
         return false;
@@ -64,7 +74,7 @@ export function useDocumentsByCompanyAndYear(
     queryKey: documentKeys.byCompanyAndYear(companyId, fiscalYear),
     queryFn: () => documentsApi.getByCompanyAndYear(companyId, fiscalYear),
     enabled: !!companyId && !isNaN(companyId) && !!fiscalYear,
-    retry: (failureCount, error: any) => {
+    retry: (failureCount, error: unknown) => {
       // Don't retry on 404 errors
       if ((error as ApiError)?.status === 404) {
         return false;
@@ -90,7 +100,7 @@ export function useDocumentsByCompanyAndType(
         options?.limit ?? 100
       ),
     enabled: !!companyId && !isNaN(companyId) && !!documentType,
-    retry: (failureCount, error: any) => {
+    retry: (failureCount, error: unknown) => {
       // Don't retry on 404 errors
       if ((error as ApiError)?.status === 404) {
         return false;

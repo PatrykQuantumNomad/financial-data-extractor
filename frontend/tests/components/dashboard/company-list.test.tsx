@@ -162,7 +162,7 @@ describe("CompanyList", () => {
 
     const firstCard = container.querySelector(".group");
     expect(firstCard).toBeInTheDocument();
-    expect(firstCard).toHaveClass("hover:shadow-lg", "hover:border-primary/50");
+    expect(firstCard).toHaveClass("hover:shadow-xl", "hover:border-primary/50");
   });
 
   it("displays current fiscal year in description", () => {

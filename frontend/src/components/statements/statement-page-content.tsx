@@ -83,7 +83,7 @@ function StatementDataLoader({
   return (
     <StatementView
       company={company}
-      statement={statement || null}
+      statement={statement ?? null}
       statementType={statementType}
     />
   );

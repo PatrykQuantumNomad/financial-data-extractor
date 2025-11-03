@@ -12,9 +12,10 @@ Copyright: 2025 Patryk Golabek
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import FastAPI
+
 from app.lifespan import LifespanManager
 from config import Settings
-from fastapi import FastAPI
 
 
 @pytest.fixture(name="mock_settings")
@@ -35,7 +36,17 @@ def fixture_mock_settings() -> Settings:
         redis_port=6379,
         redis_db=0,
         redis_password="test_password",
-        openai_api_key="test_api_key",
+        open_router_api_key="test_api_key",
+        minio_endpoint="localhost:9000",
+        minio_access_key="minioadmin",
+        minio_secret_key="minioadmin",
+        minio_bucket_name="financial-documents",
+        minio_use_ssl=False,
+        server_log_level="info",
+        app_log_level="debug",
+        logging_path="logging.json",
+        app_name="financial-data-extractor-api",
+        app_version="1.0.0",
         # Override any other settings if needed
     )
 

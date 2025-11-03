@@ -73,19 +73,28 @@ services:
         condition: service_healthy
     working_dir: /app
     volumes:
-      - ../../backend:/app
       - flower-data:/var/flower
-    command: >
-      sh -c "
-        pip install --no-cache-dir uv &&
-        uv sync --extra dev &&
-        uv run celery -A app.tasks.celery_app flower
-          --port=5555
-          --persistent=True
-          --db=/var/flower/flower.db
-          --broker=redis://redis:6379/0
-          --broker_api=redis://redis:6379/0
-      "
+    command:
+      - sh
+      - -c
+      - |
+        # Install only minimal dependencies needed for Flower
+        # This avoids pdftopng and other heavy dependencies that don't have ARM64 wheels
+        pip install --no-cache-dir \
+          celery>=5.4.0 \
+          flower>=2.0.0 \
+          redis>=5.2.0 &&
+        # Create minimal celery app for Flower (no backend code needed)
+        cat > /app/celery_app.py << 'EOF'
+        from celery import Celery
+
+        # Create minimal Celery app just for Flower monitoring
+        # Flower only needs broker URL, not the full app configuration
+        celery_app = Celery('financial-data-extractor')
+        celery_app.conf.broker_url = 'redis://redis:6379/0'
+        celery_app.conf.result_backend = 'redis://redis:6379/0'
+        EOF
+        celery -A celery_app flower --port=5555 --persistent=True --db=/var/flower/flower.db --broker=redis://redis:6379/0 --broker_api=redis://redis:6379/0
     ports:
       - "5555:5555"
     environment:
@@ -115,9 +124,119 @@ services:
       timeout: 20s
       retries: 3
 
+  # Observability Stack
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: fde-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+      - prometheus-data:/prometheus
+    depends_on:
+      - postgres
+      - redis
+      - postgres-exporter
+      - redis-exporter
+    networks:
+      - default
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: fde-grafana
+    restart: unless-stopped
+    ports:
+      - "3200:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+      - loki
+    networks:
+      - default
+
+  loki:
+    image: grafana/loki:latest
+    container_name: fde-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki-data:/loki
+      - ./monitoring/loki:/etc/loki
+    networks:
+      - default
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: fde-promtail
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/promtail:/etc/promtail
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - default
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: fde-postgres-exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:postgres@postgres:5432/financial_data_extractor?sslmode=disable"
+    ports:
+      - "9187:9187"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - default
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: fde-redis-exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: "redis:6379"
+      REDIS_PASSWORD: ""
+    ports:
+      - "9121:9121"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - default
+
 volumes:
   postgres-data:
   pgadmin-data:
   redis-data:
   flower-data:
   minio-data:
+  prometheus-data:
+  grafana-data:
+  loki-data:
+
+networks:
+  default:
+    name: fde-dev-network
+    driver: bridge

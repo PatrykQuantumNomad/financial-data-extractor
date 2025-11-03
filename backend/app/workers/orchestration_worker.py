@@ -14,8 +14,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.storage import IStorageService
 from app.db.repositories.company import CompanyRepository
+from app.db.repositories.document import DocumentRepository
 from app.workers.base import BaseWorker
 from app.workers.compilation_worker import CompilationWorker
+from app.workers.extraction_worker import ExtractionWorker
 from app.workers.scraping_worker import ScrapingWorker
 
 logger = logging.getLogger(__name__)
@@ -32,8 +34,11 @@ class OrchestrationWorker(BaseWorker):
         session: AsyncSession,
         scraping_worker: ScrapingWorker | None = None,
         compilation_worker: CompilationWorker | None = None,
+        extraction_worker: ExtractionWorker | None = None,
         progress_callback: Any | None = None,
         storage_service: IStorageService | None = None,
+        openrouter_api_key: str | None = None,
+        openrouter_model: str | None = None,
     ):
         """Initialize orchestration worker.
 
@@ -41,15 +46,22 @@ class OrchestrationWorker(BaseWorker):
             session: Database async session.
             scraping_worker: Optional ScrapingWorker instance (created if not provided).
             compilation_worker: Optional CompilationWorker instance (created if not provided).
+            extraction_worker: Optional ExtractionWorker instance (created if not provided).
             progress_callback: Optional callback for progress updates.
             storage_service: Optional storage service for PDF files.
+            openrouter_api_key: Optional OpenRouter API key for extraction worker.
+            openrouter_model: Optional OpenRouter model for extraction worker.
         """
         super().__init__(progress_callback)
         self.session = session
         self.company_repo = CompanyRepository(session)
+        self.document_repo = DocumentRepository(session)
         self.scraping_worker = scraping_worker or ScrapingWorker(session, progress_callback, storage_service)
         self.compilation_worker = compilation_worker or CompilationWorker(
             session, progress_callback
+        )
+        self.extraction_worker = extraction_worker or ExtractionWorker(
+            session, openrouter_api_key, progress_callback, storage_service, openrouter_model
         )
 
     async def extract_company_financial_data(self, company_id: int) -> dict[str, Any]:
@@ -150,6 +162,89 @@ class OrchestrationWorker(BaseWorker):
 
         self.logger.info(
             "Completed recompile_company_statements",
+            extra={"company_id": company_id, "result": overall_result},
+        )
+
+        return overall_result
+
+    async def process_all_documents(self, company_id: int) -> dict[str, Any]:
+        """Process all documents for a company through classify, download, and extract.
+
+        Args:
+            company_id: ID of the company.
+
+        Returns:
+            Dictionary with processing results for all documents.
+        """
+        self.logger.info(
+            "Starting process_all_documents",
+            extra={"company_id": company_id},
+        )
+
+        # Verify company exists
+        company_data = await self.company_repo.get_by_id(company_id)
+        if not company_data:
+            raise ValueError(f"Company with id {company_id} not found")
+
+        # Get all documents for the company
+        documents = await self.document_repo.get_by_company(company_id)
+        total_docs = len(documents)
+
+        self.logger.info(
+            f"Found {total_docs} documents to process",
+            extra={"company_id": company_id, "document_count": total_docs},
+        )
+
+        if total_docs == 0:
+            return {
+                "company_id": company_id,
+                "status": "success",
+                "message": "no_documents_found",
+                "processed_count": 0,
+                "results": [],
+            }
+
+        results = []
+        successful_count = 0
+        failed_count = 0
+
+        for idx, document in enumerate(documents, start=1):
+            self.update_progress(
+                "processing_documents",
+                {"current": idx, "total": total_docs, "document_id": document.id},
+            )
+
+            try:
+                # Process document (classify, download, extract)
+                result = await self.extraction_worker.process_document(document.id)
+                results.append({"document_id": document.id, "status": "success", "result": result})
+                successful_count += 1
+
+                self.logger.info(
+                    f"Successfully processed document {document.id}",
+                    extra={"company_id": company_id, "document_id": document.id},
+                )
+
+            except Exception as e:
+                self.logger.error(
+                    f"Failed to process document {document.id}: {e}",
+                    extra={"company_id": company_id, "document_id": document.id},
+                    exc_info=True,
+                )
+                results.append({"document_id": document.id, "status": "failure", "error": str(e)})
+                failed_count += 1
+
+        overall_result = {
+            "company_id": company_id,
+            "status": "success",
+            "processed_count": successful_count,
+            "failed_count": failed_count,
+            "total_count": total_docs,
+            "results": results,
+        }
+
+        self.logger.info(
+            "Completed process_all_documents",
             extra={"company_id": company_id, "result": overall_result},
         )
 

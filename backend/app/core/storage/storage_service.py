@@ -31,7 +31,7 @@ class StorageServiceConfig(BaseModel):
     secret_key: str = Field(..., description="Secret key for authentication")
     bucket_name: str = Field(..., description="Bucket name for storing files")
     use_ssl: bool = Field(False, description="Whether to use SSL/TLS")
-    legacy_base_path: Path = Field(
+    base_storage_path: Path = Field(
         default=Path("data/pdfs"),
         description="Base path for legacy local storage",
     )
@@ -365,7 +365,7 @@ class LegacyLocalStorageService(IStorageService):
             config: Storage service configuration.
         """
         self.config = config
-        self.base_path = config.legacy_base_path
+        self.base_path = config.base_storage_path
 
     def _get_full_path(self, object_key: str) -> Path:
         """Convert object key to full file system path."""

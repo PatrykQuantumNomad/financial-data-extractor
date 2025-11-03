@@ -1,6 +1,6 @@
-import { documentsApi, type StoragePdfListResponse } from "@/lib/api/documents";
+import { documentsApi } from "@/lib/api/documents";
 import { useQuery } from "@tanstack/react-query";
-import { ApiError } from "../api/client";
+import { type ApiError } from "../api/client";
 
 // Query keys
 export const storagePdfKeys = {
@@ -16,7 +16,7 @@ export function useStoragePdfs(companyId: number, fiscalYear?: number) {
     queryKey: storagePdfKeys.list(companyId, fiscalYear),
     queryFn: () => documentsApi.listStoragePdfs(companyId, fiscalYear),
     enabled: !!companyId && !isNaN(companyId),
-    retry: (failureCount, error: any) => {
+    retry: (failureCount, error: unknown) => {
       // Don't retry on 404 errors
       if ((error as ApiError)?.status === 404) {
         return false;

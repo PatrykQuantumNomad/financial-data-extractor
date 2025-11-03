@@ -36,6 +36,14 @@ The development environment includes the following services:
 - **pgAdmin** - Database administration UI (port 5050)
 - **Redis** - Caching and Celery message broker (port 6379)
 - **Redis Commander** - Redis administration UI (port 8081)
+- **MinIO** - S3-compatible object storage for PDF files (API: port 9000, Console: port 9001)
+- **Flower** - Celery task monitoring dashboard (port 5555)
+- **Prometheus** - Metrics collection and storage (port 9090)
+- **Grafana** - Metrics visualization and dashboards (port 3200)
+- **Loki** - Log aggregation (port 3100)
+- **Promtail** - Log shipper for Loki
+- **PostgreSQL Exporter** - Prometheus exporter for PostgreSQL metrics (port 9187)
+- **Redis Exporter** - Prometheus exporter for Redis metrics (port 9121)
 
 ## Infrastructure Makefile Commands
 
@@ -149,6 +157,69 @@ postgres:
 
 - **URL**: <http://localhost:8081>
 
+### MinIO
+
+**Access Details:**
+
+- **S3 API**: `http://localhost:9000`
+- **Web Console**: `http://localhost:9001`
+- **Username**: `minioadmin`
+- **Password**: `minioadmin`
+- **Default Bucket**: `financial-documents` (auto-created on first use)
+
+**Usage:**
+
+MinIO is used for storing PDF documents instead of local file system. The storage service automatically creates the bucket if it doesn't exist.
+
+### Flower
+
+**Access Details:**
+
+- **URL**: `http://localhost:5555`
+- **Persistent Mode**: Enabled (task history stored in SQLite)
+
+Flower provides real-time monitoring of Celery tasks, workers, and queues. See [Task Processing Documentation](tasks.md) for details.
+
+### Prometheus
+
+**Access Details:**
+
+- **URL**: `http://localhost:9090`
+- **Metrics Endpoint**: `http://localhost:3030/metrics` (from FastAPI backend)
+
+Prometheus scrapes metrics from:
+- FastAPI backend (`/metrics` endpoint)
+- PostgreSQL exporter (port 9187)
+- Redis exporter (port 9121)
+
+### Grafana
+
+**Access Details:**
+
+- **URL**: `http://localhost:3200`
+- **Username**: `admin`
+- **Password**: `admin`
+
+Grafana is pre-configured with:
+- Prometheus data source
+- Loki data source (for logs)
+- Pre-built dashboards for API metrics, database metrics, and Redis metrics
+
+**First Login:**
+
+1. Navigate to `http://localhost:3200`
+2. Login with `admin` / `admin`
+3. Change password when prompted (optional, can skip)
+
+### Loki
+
+**Access Details:**
+
+- **URL**: `http://localhost:3100`
+- **Query API**: `http://localhost:3100/loki/api/v1/query`
+
+Loki aggregates logs from all services. Logs are queried via Grafana's Explore view.
+
 ## Environment Configuration
 
 ### Backend Environment Variables
@@ -211,6 +282,12 @@ make url
 [DEV] pgAdmin:         http://localhost:5050 (admin@local.dev / adminadmin)
 [DEV] Redis:           redis://localhost:6379
 [DEV] Redis Commander: http://localhost:8081
+[DEV] MinIO API:       http://localhost:9000
+[DEV] MinIO Console:   http://localhost:9001 (minioadmin / minioadmin)
+[DEV] Flower:          http://localhost:5555
+[DEV] Prometheus:      http://localhost:9090
+[DEV] Grafana:         http://localhost:3200 (admin / admin)
+[DEV] Loki:            http://localhost:3100
 ```
 
 ## Troubleshooting
@@ -285,6 +362,11 @@ All services use named volumes for data persistence:
 - `postgres-data` - PostgreSQL data directory
 - `pgadmin-data` - pgAdmin configuration
 - `redis-data` - Redis persistence data
+- `minio-data` - MinIO object storage data
+- `flower-data` - Flower persistent task history
+- `prometheus-data` - Prometheus metrics storage
+- `grafana-data` - Grafana dashboards and configuration
+- `loki-data` - Loki log storage
 
 ## Data Persistence
 

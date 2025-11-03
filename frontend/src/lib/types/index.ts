@@ -5,7 +5,7 @@ export interface Company {
   name: string;
   ir_url: string;
   primary_ticker: string | null;
-  tickers: Array<{ [key: string]: string }> | null;
+  tickers: Array<Record<string, string>> | null;
   created_at: string | null;
 }
 
@@ -13,7 +13,7 @@ export interface CompanyCreate {
   name: string;
   ir_url: string;
   primary_ticker?: string | null;
-  tickers?: Array<{ [key: string]: string }> | null;
+  tickers?: Array<Record<string, string>> | null;
 }
 
 export interface Document {
@@ -30,7 +30,7 @@ export interface CompiledStatement {
   id: number;
   company_id: number;
   statement_type: string;
-  data: Record<string, any>; // Financial data structure
+  data: Record<string, unknown>; // Financial data structure
   updated_at: string | null;
 }
 
@@ -43,11 +43,14 @@ export interface TaskResponse {
 export interface TaskStatus {
   task_id: string;
   status: "PENDING" | "STARTED" | "SUCCESS" | "FAILURE" | "RETRY" | "REVOKED";
-  result: Record<string, any> | null;
+  result: Record<string, unknown> | null;
   error: string | null;
 }
 
-export type StatementType = "income_statement" | "balance_sheet" | "cash_flow_statement";
+export type StatementType =
+  | "income_statement"
+  | "balance_sheet"
+  | "cash_flow_statement";
 
 export interface StoragePdfFile {
   object_key: string;

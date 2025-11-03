@@ -22,7 +22,7 @@ The Financial Data Extractor automates the labor-intensive process of collecting
 ### Core Objectives
 
 1. **Scrape & Classify**: Identify and categorize PDFs from investor relations websites
-2. **Parse**: Extract financial data from Annual Reports using GPT-5/LLM
+2. **Parse**: Extract financial data from Annual Reports using LLM (via OpenRouter)
 3. **Compile**: Aggregate 10 years of financial data into unified views
 4. **Deduplicate**: Align and merge similarly-named line items across years
 5. **Prioritize Latest**: Use restated data from newer reports when available
@@ -83,7 +83,7 @@ graph TB
     end
 
     subgraph "External Services"
-        F[OpenAI GPT-5 API]
+        F[OpenRouter LLM API]
         G[MinIO Object Storage]
     end
 
@@ -123,9 +123,14 @@ graph TB
 
 ## Target Companies
 
-- **Initial Scope**: 2-3 European companies (e.g., Adyen, Heineken)
-- **Hardcoded Data**: Company name, ticker, investor relations URL
-- **Scalable**: Architecture supports adding more companies dynamically
+- **Initial Scope**: 6 European companies seeded in database migrations
+  - AstraZeneca PLC (AZN - LSE, NASDAQ)
+  - SAP SE (SAP - XETRA, NYSE)
+  - Siemens AG (SIE - XETRA)
+  - ASML Holding N.V. (ASML - Euronext Amsterdam, NASDAQ)
+  - Unilever PLC (ULVR - LSE, UNA - Euronext Amsterdam, UL - NYSE)
+  - Allianz SE (ALV - XETRA)
+- **Scalable**: Architecture supports adding more companies dynamically via API
 
 ## Data Flow
 
@@ -148,10 +153,10 @@ graph TB
 2. Worker 2 extracts text/tables using:
    - PyMuPDF / pdfplumber for structured tables
    - OCR (Tesseract/AWS Textract) for scanned documents
-3. Sends extracted content + prompt to GPT-5:
+3. Sends extracted content + prompt to LLM (via OpenRouter):
    - "Extract Income Statement, Balance Sheet, Cash Flow Statement"
    - "Return as structured JSON with all line items"
-4. GPT-5 returns structured financial data
+4. LLM returns structured financial data
 5. Validates data structure and completeness
 6. Stores raw extraction in database (JSON column)
 
@@ -174,18 +179,28 @@ graph TB
 
 ## Technology Decisions
 
-### Why GPT-5 for Extraction?
+### Why LLM for Extraction?
+
+The platform uses **OpenRouter** as an API gateway to access multiple LLM providers (OpenAI, Anthropic, etc.), allowing flexible model selection:
 
 1. **Flexibility**: Handles various report formats without custom parsers
-2. **Accuracy**: State-of-the-art text understanding
+2. **Accuracy**: State-of-the-art text understanding from multiple providers
 3. **Hierarchy**: Understands nested line items and relationships
 4. **Multi-language**: Can handle European languages
+5. **Model Selection**: Choose optimal models per task (e.g., GPT-4o-mini for scraping, GPT-4o for extraction)
+
+**Configuration:**
+
+- **Scraping Model**: `openai/gpt-4o-mini` (fast, cost-effective for URL discovery)
+- **Extraction Model**: `openai/gpt-4o-mini` (configurable, can use GPT-4o or Claude 3.5 Sonnet for better accuracy)
+- **API Gateway**: OpenRouter provides unified interface to multiple providers
 
 **Alternatives Considered:**
 
 - Traditional OCR + Rule-based parsing: Too brittle
 - LayoutLM/DocAI: Requires training data
-- AWS Textract: Good but less flexible than GPT-5
+- AWS Textract: Good but less flexible than modern LLMs
+- Direct OpenAI API: OpenRouter provides better flexibility and cost management
 
 ### Why PostgreSQL?
 
@@ -196,10 +211,12 @@ graph TB
 
 ### Why Celery?
 
-1. **Async Processing**: PDFs take minutes to process
-2. **Retries**: Handle API failures, rate limits gracefully
-3. **Monitoring**: Flower dashboard for task tracking
-4. **Workflows**: Complex pipelines (scrape → classify → extract → compile)
+1. **Async Processing**: PDFs take minutes to process, LLM calls can take 2-5 minutes per document
+2. **Retries**: Handle API failures, rate limits gracefully with exponential backoff
+3. **Monitoring**: Flower dashboard for real-time task tracking and history
+4. **Workflows**: Complex pipelines (scrape → classify → extract → compile) with task chaining
+5. **Queue Management**: Dedicated queues for different task types (scraping, extraction, compilation, orchestration)
+6. **Scalability**: Horizontal scaling with multiple workers across queues
 
 See [Task Processing Documentation](infrastructure/tasks.md) for complete details on the Celery task system, Flower monitoring, and task management.
 
@@ -223,12 +240,25 @@ See [Task Processing Documentation](infrastructure/tasks.md) for complete detail
 
 ### Processing & AI
 
-- **OpenAI GPT-5** - Financial statement extraction from PDFs
+- **OpenRouter** - LLM API gateway for accessing multiple models (GPT-4o, GPT-4o-mini, Claude 3.5 Sonnet)
 - **PyMuPDF** - PDF processing and table extraction
 - **pdfplumber** - Alternative PDF text extraction
 - **rapidfuzz** - Fuzzy string matching for line item normalization
+- **Crawl4AI** - LLM-friendly web crawler for investor relations websites
 
 ## Monitoring & Observability
+
+The platform includes a comprehensive observability stack for monitoring, metrics, and logging:
+
+### Monitoring Stack
+
+- **Prometheus** - Metrics collection and storage (port 9090)
+- **Grafana** - Metrics visualization and dashboards (port 3200)
+- **Loki** - Log aggregation (port 3100)
+- **Promtail** - Log shipper for container logs
+- **Flower** - Celery task monitoring (port 5555)
+- **PostgreSQL Exporter** - Database metrics (port 9187)
+- **Redis Exporter** - Cache and broker metrics (port 9121)
 
 ### Key Metrics
 
@@ -238,36 +268,56 @@ See [Task Processing Documentation](infrastructure/tasks.md) for complete detail
 - Total PDFs classified
 - Statements extracted per day
 - Data quality scores
+- Extraction success rates
 
 **Technical Metrics:**
 
-- API latency (p50, p95, p99)
-- Celery queue depth
-- Task success/failure rates
-- GPT-5 API costs and latency
-- Database query performance
+- API latency (p50, p95, p99) - via Prometheus from FastAPI `/metrics`
+- Celery queue depth - monitored via Flower and Redis exporter
+- Task success/failure rates - tracked in Flower and Prometheus
+- LLM API costs and latency - tracked via custom metrics
+- Database query performance - PostgreSQL exporter metrics
+- Redis connection pool usage - Redis exporter metrics
+- Storage usage (MinIO) - via MinIO console
 
 **Alerts:**
 
 - Task failure rate > 5%
-- GPT-5 API errors
+- LLM API errors (429, 500, timeout)
 - Queue backlog > 1000 tasks
+- Database connection pool exhaustion
+- Redis memory usage > 80%
 - Disk space < 10% free
 
 ### Dashboards
 
-**Grafana Dashboards:**
+**Grafana Dashboards (Pre-configured):**
 
-1. **Extraction Pipeline**: Jobs, phases, success rates
-2. **API Performance**: Latency, throughput, errors
-3. **LLM Usage**: API calls, costs, latency
-4. **Infrastructure**: CPU, memory, disk, network
+1. **API Performance** - Request latency, throughput, error rates from FastAPI
+2. **Database Metrics** - PostgreSQL connection pool, query performance, transaction rates
+3. **Redis Metrics** - Memory usage, connection count, command rates
+4. **Celery Tasks** - Task execution times, success/failure rates, queue depths (via Prometheus)
+5. **Infrastructure** - CPU, memory, disk, network usage
+
+**Log Aggregation:**
+
+- All container logs aggregated via Promtail → Loki
+- Query logs via Grafana Explore view
+- Structured logging from FastAPI with request IDs
+- Celery worker logs with task context
+
+### Access
+
+- **Grafana**: `http://localhost:3200` (admin/admin)
+- **Prometheus**: `http://localhost:9090`
+- **Flower**: `http://localhost:5555`
+- **Loki**: `http://localhost:3100`
 
 ## Security Considerations
 
 1. **Rate Limiting**: Prevent abuse of expensive extraction endpoints
 2. **Authentication**: OAuth2 with JWT tokens
-3. **API Keys**: Secure storage of OpenAI API keys (env vars)
+3. **API Keys**: Secure storage of OpenRouter API keys (env vars)
 4. **Input Validation**: Sanitize company URLs to prevent SSRF
 5. **File Validation**: Verify PDFs, scan for malware
 6. **Data Privacy**: GDPR compliance for European companies
@@ -276,11 +326,14 @@ See [Task Processing Documentation](infrastructure/tasks.md) for complete detail
 
 ### Prerequisites
 
-- Python 3.13
-- UV package manager
-- PostgreSQL 16+
-- Redis 7+
-- MinIO (object storage) - runs via Docker Compose
+- **Python 3.13** - Backend runtime
+- **UV package manager** - Python dependency management
+- **Node.js 18+** - Frontend runtime
+- **Docker & Docker Compose** - Infrastructure services
+- **PostgreSQL 16+** - Primary database (via Docker)
+- **Redis 8+** - Cache and Celery broker (via Docker)
+- **MinIO** - Object storage for PDFs (via Docker)
+- **OpenRouter API Key** - For LLM access (get from [OpenRouter.ai](https://openrouter.ai))
 
 ### Initial Setup
 
@@ -289,18 +342,37 @@ See [Task Processing Documentation](infrastructure/tasks.md) for complete detail
 git clone https://github.com/PatrykQuantumNomad/financial-data-extractor.git
 cd financial-data-extractor
 
-# Install backend dependencies
-cd backend
-make install-dev
+# Start infrastructure services (PostgreSQL, Redis, MinIO, monitoring)
+cd infrastructure
+make up-dev
 
-# Run database migrations
+# Setup backend
+cd ../backend
+make install-dev
 make migrate
 
-# Start development server
+# Start backend server (in one terminal)
 make run
+
+# Start Celery worker (in another terminal)
+make celery-worker
+
+# Setup frontend (in a third terminal)
+cd ../frontend
+npm install
+npm run dev
 ```
 
-See the [Backend README](../backend/README.md) for detailed setup instructions and development workflows.
+**Access Points:**
+
+- **Frontend**: `http://localhost:3000`
+- **Backend API**: `http://localhost:3030`
+- **API Docs**: `http://localhost:3030/docs`
+- **Grafana**: `http://localhost:3200`
+- **Flower**: `http://localhost:5555`
+- **MinIO Console**: `http://localhost:9001`
+
+See the [Infrastructure Development Setup](infrastructure/development.md) and [Backend README](../backend/README.md) for detailed setup instructions.
 
 ## Documentation
 
@@ -334,9 +406,9 @@ This documentation site provides comprehensive guides organized by category:
 ### Infrastructure
 
 - **[Infrastructure Overview](infrastructure/)** - Docker setup, development environment, and task processing
-- **[Development Setup](infrastructure/development.md)** - Docker Compose setup and service management
+- **[Development Setup](infrastructure/development.md)** - Docker Compose setup, service management, and monitoring stack
 - **[Task Processing](infrastructure/tasks.md)** - Celery task system, workers, Flower monitoring
-- **[Object Storage](../docs/storage.md)** - MinIO object storage setup and usage
+- **[Object Storage](storage.md)** - MinIO object storage setup and usage
 
 ### Testing
 

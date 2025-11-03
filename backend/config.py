@@ -45,10 +45,17 @@ class Settings(BaseSettings):
     redis_max_connections: int = Field(10, description="Maximum number of connections to Redis.")
 
     # LLM configuration
-    openai_api_key: str = Field(..., description="API key for OpenAI services.")
     open_router_api_key: str = Field(..., description="API key for OpenRouter services.")
+    open_router_model_scraping: str = Field(
+        default="openai/gpt-4o-mini",
+        description="OpenRouter model to use for PDF discovery/scraping operations (e.g., 'openai/gpt-4o-mini', 'openai/gpt-4o', 'anthropic/claude-3.5-sonnet').",
+    )
+    open_router_model_extraction: str = Field(
+        default="openai/gpt-4o-mini",
+        description="OpenRouter model to use for financial statement extraction operations (e.g., 'openai/gpt-4o-mini', 'openai/gpt-4o', 'anthropic/claude-3.5-sonnet').",
+    )
 
-    # PDF storage configuration (legacy local storage)
+    # PDF storage configuration
     pdf_storage_base_path: str = Field(
         "data/pdfs", description="Base path for storing PDF documents (legacy)."
     )
@@ -60,21 +67,13 @@ class Settings(BaseSettings):
     minio_enabled: bool = Field(
         True, description="Whether to use MinIO/S3 object storage for PDF files."
     )
-    minio_endpoint: str = Field(
-        ..., description="MinIO/S3 endpoint URL (e.g., localhost:9000)."
-    )
-    minio_access_key: str = Field(
-        ..., description="MinIO/S3 access key."
-    )
-    minio_secret_key: str = Field(
-        ..., description="MinIO/S3 secret key."
-    )
+    minio_endpoint: str = Field(..., description="MinIO/S3 endpoint URL (e.g., localhost:9000).")
+    minio_access_key: str = Field(..., description="MinIO/S3 access key.")
+    minio_secret_key: str = Field(..., description="MinIO/S3 secret key.")
     minio_bucket_name: str = Field(
         "financial-documents", description="Bucket name for storing PDF files."
     )
-    minio_use_ssl: bool = Field(
-        False, description="Whether to use SSL/TLS for MinIO connection."
-    )
+    minio_use_ssl: bool = Field(False, description="Whether to use SSL/TLS for MinIO connection.")
 
     # Server configuration
     host: str = Field("0.0.0.0", description="Host address where the server will listen.")

@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from app.tasks.extraction_tasks import extract_financial_statements, process_document
 from app.tasks.orchestration_tasks import (
     extract_company_financial_data,
+    process_all_documents,
     recompile_company_statements,
 )
 from app.tasks.scraping_tasks import classify_document, download_pdf, scrape_investor_relations
@@ -234,6 +235,38 @@ async def trigger_process_document(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to trigger processing task: {str(e)}",
+        ) from e
+
+
+@router.post(
+    "/companies/{company_id}/process-documents",
+    response_model=TaskResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Process all company documents",
+    description="Processes all documents for a company through classify, download, and extract steps.",
+)
+async def trigger_process_all_documents(
+    company_id: Annotated[int, Path(description="Company ID")],
+) -> TaskResponse:
+    """Trigger batch processing of all documents for a company.
+
+    Args:
+        company_id: ID of the company.
+
+    Returns:
+        Task response with task ID and status.
+    """
+    try:
+        task = process_all_documents.delay(company_id)
+        return TaskResponse(
+            task_id=task.id,
+            status="PENDING",
+            message=f"Batch document processing started for company {company_id}",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to trigger batch processing task: {str(e)}",
         ) from e
 
 

@@ -1,11 +1,16 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import type { Document } from "@/lib/types";
-import { FileText, Calendar, ExternalLink, Download } from "lucide-react";
 import { format } from "date-fns";
+import { Calendar, ExternalLink, FileText } from "lucide-react";
 
 interface DocumentListProps {
   companyId: number;
@@ -13,7 +18,11 @@ interface DocumentListProps {
   loading: boolean;
 }
 
-export function DocumentList({ companyId, documents, loading }: DocumentListProps) {
+export function DocumentList({
+  companyId: _companyId,
+  documents,
+  loading,
+}: DocumentListProps) {
   if (loading) {
     return (
       <div className="space-y-4">
@@ -34,7 +43,8 @@ export function DocumentList({ companyId, documents, loading }: DocumentListProp
       <Card>
         <CardContent className="pt-6">
           <p className="text-center text-muted-foreground py-8">
-            No documents found for this company. Start extraction to discover PDFs.
+            No documents found for this company. Start extraction to discover
+            PDFs.
           </p>
         </CardContent>
       </Card>
@@ -43,10 +53,9 @@ export function DocumentList({ companyId, documents, loading }: DocumentListProp
 
   // Group documents by fiscal year
   const documentsByYear = documents.reduce((acc, doc) => {
-    if (!acc[doc.fiscal_year]) {
-      acc[doc.fiscal_year] = [];
-    }
-    acc[doc.fiscal_year].push(doc);
+    const year = doc.fiscal_year;
+    acc[year] ??= [];
+    acc[year].push(doc);
     return acc;
   }, {} as Record<number, Document[]>);
 
@@ -60,13 +69,15 @@ export function DocumentList({ companyId, documents, loading }: DocumentListProp
         <div key={year}>
           <h3 className="text-lg font-semibold mb-4">Fiscal Year {year}</h3>
           <div className="grid gap-4 md:grid-cols-2">
-            {documentsByYear[year].map((doc) => (
+            {documentsByYear[year]!.map((doc) => (
               <Card key={doc.id}>
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
                       <FileText className="h-5 w-5 text-muted-foreground" />
-                      <CardTitle className="text-lg">{doc.document_type}</CardTitle>
+                      <CardTitle className="text-lg">
+                        {doc.document_type}
+                      </CardTitle>
                     </div>
                     <Badge variant="secondary">FY {doc.fiscal_year}</Badge>
                   </div>

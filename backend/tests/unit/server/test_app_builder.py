@@ -9,16 +9,15 @@ Author: Patryk Golabek
 Copyright: 2025 Patryk Golabek
 """
 
-import os
 from unittest.mock import MagicMock
 
 import pytest
-from app.api.middleware.request_context import (RequestIDMiddleware,
-                                                TimeoutMiddleware)
-from app.app_builder import FastAPIAppBuilder
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pytest_mock import MockerFixture
+
+from app.api.middleware.request_context import RequestIDMiddleware, TimeoutMiddleware
+from app.app_builder import FastAPIAppBuilder
 
 
 @pytest.fixture(name="mock_settings")

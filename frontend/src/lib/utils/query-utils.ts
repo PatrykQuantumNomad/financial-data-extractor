@@ -1,5 +1,8 @@
-import { UseQueryResult, UseMutationResult } from "@tanstack/react-query";
 import type { ApiError } from "@/lib/api/client";
+import {
+  type UseMutationResult,
+  type UseQueryResult,
+} from "@tanstack/react-query";
 
 /**
  * Utility type for better error typing in queries
@@ -14,12 +17,12 @@ export function getErrorMessage(
   defaultMessage = "An error occurred"
 ): string {
   if (!error) return defaultMessage;
-  
+
   const apiError = error as ApiError;
   if (apiError.message) {
     return apiError.message;
   }
-  
+
   return defaultMessage;
 }
 
@@ -62,9 +65,7 @@ export function isMutationPending(mutation: UseMutationResult): boolean {
 /**
  * Helper to safely get nested query data
  */
-export function getQueryData<T>(
-  query: UseQueryResult<T>
-): T | undefined {
+export function getQueryData<T>(query: UseQueryResult<T>): T | undefined {
   return query.data;
 }
 
@@ -111,7 +112,7 @@ export function formatBytes(bytes: number, decimals = 2): string {
  */
 export function formatDate(dateString: string | null): string {
   if (!dateString) return "N/A";
-  
+
   try {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat("en-US", {
@@ -129,18 +130,18 @@ export function formatDate(dateString: string | null): string {
 /**
  * Create a debounced function
  */
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout;
-  
+
   return function executedFunction(...args: Parameters<T>) {
     const later = () => {
       clearTimeout(timeout);
       func(...args);
     };
-    
+
     clearTimeout(timeout);
     timeout = setTimeout(later, wait);
   };

@@ -13,12 +13,18 @@ import os
 
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 from config import Settings
 
-__all__ = ["Base", "engine", "SessionLocal", "async_engine", "AsyncSessionLocal"]
+__all__ = [
+    "Base",
+    "engine",
+    "SessionLocal",
+    "async_engine",
+    "AsyncSessionLocal",
+    "get_session_maker",
+]
 
 # Create declarative base for models
 # Models will import this Base and register themselves with Base.metadata
@@ -83,3 +89,39 @@ AsyncSessionLocal = async_sessionmaker(
     autocommit=False,
     autoflush=False,
 )
+
+
+def get_session_maker(database_url: str) -> async_sessionmaker[AsyncSession]:
+    """Create an async session maker from a database URL.
+
+    Useful for tests that need to create sessions with custom database URLs.
+
+    Args:
+        database_url: Database connection URL.
+
+    Returns:
+        Async session maker configured for the given database URL.
+    """
+    # Convert to async URL format if needed
+    if database_url.startswith("postgresql://"):
+        async_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    else:
+        async_url = database_url
+
+    # Create async engine for this URL
+    test_engine = create_async_engine(
+        async_url,
+        pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=20,
+        echo=False,
+    )
+
+    # Create session maker
+    return async_sessionmaker(
+        test_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False,
+    )

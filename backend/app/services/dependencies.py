@@ -119,6 +119,6 @@ async def get_storage_service(
         secret_key=settings.minio_secret_key,
         bucket_name=settings.minio_bucket_name,
         use_ssl=settings.minio_use_ssl,
-        legacy_base_path=Path(settings.pdf_storage_base_path),
+        base_storage_path=Path(settings.pdf_storage_base_path),
     )
     return create_storage_service(config)

@@ -10,10 +10,15 @@ Copyright: 2025 Patryk Golabek
 import logging
 from typing import Any
 
-from sqlalchemy import distinct, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.compilation.compiler import StatementCompiler
+from app.core.compilation.restatement import RestatementHandler
+from app.core.normalization.normalizer import LineItemNormalizer
+from app.db.models.extraction import CompiledStatement
 from app.db.repositories.compiled_statement import CompiledStatementRepository
+from app.db.repositories.document import DocumentRepository
 from app.db.repositories.extraction import ExtractionRepository
 from app.workers.base import BaseWorker
 
@@ -43,7 +48,11 @@ class CompilationWorker(BaseWorker):
         super().__init__(progress_callback)
         self.session = session
         self.extraction_repo = ExtractionRepository(session)
+        self.document_repo = DocumentRepository(session)
         self.compiled_statement_repo = CompiledStatementRepository(session)
+        self.normalizer = LineItemNormalizer()
+        self.compiler = StatementCompiler()
+        self.restatement_handler = RestatementHandler()
 
     async def normalize_and_compile_statements(
         self, company_id: int, statement_type: str
@@ -92,12 +101,70 @@ class CompilationWorker(BaseWorker):
         self.update_progress("normalizing_line_items")
 
         # Normalize line items across extractions
-        normalized_data = await self._normalize_line_items(extractions)
+        normalized_map = self.normalizer.normalize_line_items(extractions)
+
+        self.update_progress("prioritizing_restated_data")
+
+        # Map normalized names back to extractions for restatement handler
+        # The restatement handler works with original names, so we need to preserve mapping
+        extraction_with_normalized = []
+        for extraction in extractions:
+            # Create mapping of original -> normalized names
+            raw_data = extraction.get("raw_data", {})
+            line_items = raw_data.get("line_items", [])
+            name_mapping = {}
+            for item in line_items:
+                original_name = item.get("item_name", "") or item.get("name", "")
+                if original_name:
+                    # Find normalized name
+                    for canonical, entry in normalized_map.items():
+                        variations = entry.get("variations", [])
+                        for var in variations:
+                            if var.get("original_name") == original_name:
+                                name_mapping[original_name] = canonical
+                                break
+
+            extraction_copy = extraction.copy()
+            extraction_copy["_normalized_names"] = name_mapping
+            extraction_with_normalized.append(extraction_copy)
+
+        # Prioritize restated data (newer reports override older)
+        prioritized_data = self.restatement_handler.prioritize_restated_data(
+            extraction_with_normalized
+        )
+
+        # Remap prioritized data to use normalized names
+        prioritized_normalized = {}
+        for year, line_items_year in prioritized_data.items():
+            prioritized_normalized[year] = {}
+            for original_name, value_data in line_items_year.items():
+                # Find normalized name for this original
+                normalized_name = original_name  # Default
+                for extraction in extraction_with_normalized:
+                    name_mapping = extraction.get("_normalized_names", {})
+                    if original_name in name_mapping:
+                        normalized_name = name_mapping[original_name]
+                        break
+                prioritized_normalized[year][normalized_name] = value_data
 
         self.update_progress("compiling_statement")
 
+        # Get currency and unit from first extraction (assuming consistent)
+        currency = "EUR"
+        unit = "thousands"
+        if extractions:
+            raw_data = extractions[0].get("raw_data", {})
+            currency = raw_data.get("currency", currency)
+            unit = raw_data.get("unit", unit)
+
         # Compile multi-year statement
-        compiled_data = await self._compile_multi_year_statement(normalized_data, extractions)
+        compiled_data = self.compiler.compile_statement(
+            normalized_map=normalized_map,
+            prioritized_data=prioritized_normalized,
+            statement_type=statement_type,
+            currency=currency,
+            unit=unit,
+        )
 
         self.update_progress("storing_compiled_statement")
 
@@ -113,7 +180,7 @@ class CompilationWorker(BaseWorker):
             "extraction_count": len(extractions),
             "line_item_count": len(compiled_data.get("line_items", [])),
             "years": compiled_data.get("years", []),
-            "compiled_statement_id": compiled_statement.get("id") if compiled_statement else None,
+            "compiled_statement_id": compiled_statement.id if compiled_statement else None,
         }
 
         self.logger.info(
@@ -181,13 +248,13 @@ class CompilationWorker(BaseWorker):
     async def _get_extractions_for_company(
         self, company_id: int, statement_type: str
     ) -> list[dict[str, Any]]:
-        """Get all extractions for a company and statement type."""
+        """Get all extractions for a company and statement type with document info."""
         from app.db.models.document import Document
         from app.db.models.extraction import Extraction
 
-        # Use SQLAlchemy join to filter by company_id
+        # Use SQLAlchemy join to filter by company_id and get document info
         stmt = (
-            select(Extraction)
+            select(Extraction, Document.fiscal_year)
             .join(Document, Extraction.document_id == Document.id)
             .where(
                 Document.company_id == company_id,
@@ -196,147 +263,29 @@ class CompilationWorker(BaseWorker):
             .order_by(Document.fiscal_year.desc())
         )
         result = await self.session.execute(stmt)
-        extractions = result.scalars().all()
-        return [await self.extraction_repo._model_to_dict(ext) for ext in extractions]
+        rows = result.all()
 
-    async def _normalize_line_items(self, extractions: list[dict[str, Any]]) -> dict[str, Any]:
-        """Normalize line item names across extractions using fuzzy matching.
+        # Build extraction dicts with fiscal_year
+        extractions = []
+        for extraction, fiscal_year in rows:
+            ext_dict = await self.extraction_repo._model_to_dict(extraction)
+            ext_dict["fiscal_year"] = fiscal_year
+            # Also add to raw_data for compatibility
+            if "fiscal_year" not in ext_dict.get("raw_data", {}):
+                ext_dict.setdefault("raw_data", {})["fiscal_year"] = fiscal_year
+            extractions.append(ext_dict)
 
-        Args:
-            extractions: List of extraction records.
+        return extractions
 
-        Returns:
-            Dictionary mapping normalized names to original variations.
-        """
-        from rapidfuzz import fuzz
-
-        # Collect all unique line item names
-        line_items_map = {}
-        for extraction in extractions:
-            raw_data = extraction.get("raw_data", {})
-            line_items = raw_data.get("line_items", [])
-
-            for item in line_items:
-                item_name = item.get("name", "")
-                if not item_name:
-                    continue
-
-                # Check for similar names using fuzzy matching
-                normalized_name = None
-                threshold = 85  # Similarity threshold
-
-                for existing_name in line_items_map.keys():
-                    similarity = fuzz.ratio(item_name.lower(), existing_name.lower())
-                    if similarity >= threshold:
-                        normalized_name = existing_name
-                        break
-
-                if not normalized_name:
-                    normalized_name = item_name
-
-                if normalized_name not in line_items_map:
-                    line_items_map[normalized_name] = []
-
-                line_items_map[normalized_name].append(
-                    {
-                        "original": item_name,
-                        "extraction_id": extraction.get("id"),
-                        "document_id": extraction.get("document_id"),
-                    }
-                )
-
-        return {"normalized_map": line_items_map}
-
-    async def _compile_multi_year_statement(
-        self, normalized_data: dict[str, Any], extractions: list[dict[str, Any]]
-    ) -> dict[str, Any]:
-        """Compile multi-year statement from normalized data.
-
-        Args:
-            normalized_data: Normalized line item mapping.
-            extractions: List of extraction records with fiscal year info.
-
-        Returns:
-            Compiled statement data with all years and line items.
-        """
-        from app.db.models.document import Document
-        from app.db.models.extraction import Extraction
-
-        # Get unique years by querying documents directly
-        extraction_ids = [ext["id"] for ext in extractions]
-        if not extraction_ids:
-            years = []
-        else:
-            # Get distinct fiscal years using ORM join
-            stmt = (
-                select(distinct(Document.fiscal_year))
-                .join(Extraction, Document.id == Extraction.document_id)
-                .where(Extraction.id.in_(extraction_ids))
-                .order_by(Document.fiscal_year.desc())
-            )
-            result = await self.session.execute(stmt)
-            years = [row[0] for row in result.all()]
-
-        # Build compiled statement structure
-        compiled_line_items = []
-        normalized_map = normalized_data.get("normalized_map", {})
-
-        for normalized_name, variations in normalized_map.items():
-            line_item = {"name": normalized_name}
-            # Get values for each year
-            for year in years:
-                # Find extraction with this year and get value
-                # This is simplified - actual implementation should handle restatements
-                value = await self._get_value_for_year(variations, year, extractions)
-                line_item[str(year)] = value
-
-            compiled_line_items.append(line_item)
-
-        return {
-            "line_items": compiled_line_items,
-            "years": years,
-            "metadata": {
-                "extraction_count": len(extractions),
-                "normalized_line_item_count": len(normalized_map),
-            },
-        }
-
-    async def _get_value_for_year(
-        self,
-        variations: list[dict[str, Any]],
-        year: int,
-        extractions: list[dict[str, Any]],
-    ) -> Any | None:
-        """Get value for a specific year from variations.
-
-        Args:
-            variations: List of variations for the line item.
-            year: Fiscal year to get value for.
-            extractions: List of extraction records.
-
-        Returns:
-            Value for the year, or None if not found.
-        """
-        # Simplified implementation
-        # Should prioritize restated data from newer reports
-
-        for variation in variations:
-            extraction_id = variation.get("extraction_id")
-            extraction = next((e for e in extractions if e.get("id") == extraction_id), None)
-            if extraction:
-                document_id = extraction.get("document_id")
-                # Get document to check fiscal year
-                # This is a simplified version - real implementation would
-                # need to join with documents to get fiscal_year
-                # and match against the requested year
-                pass
-
-        return None
 
     async def _store_compiled_statement(
         self, company_id: int, statement_type: str, compiled_data: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Store compiled statement in database."""
+    ) -> CompiledStatement:
+        """Store compiled statement in database.
+
+        Returns:
+            CompiledStatement model instance.
+        """
         return await self.compiled_statement_repo.upsert(
             company_id=company_id,
             statement_type=statement_type,

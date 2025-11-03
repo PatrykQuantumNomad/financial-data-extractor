@@ -214,6 +214,15 @@ db-info: ## Show database info and migration status
 	@echo "$(COLOR_GREEN)Database information:$(COLOR_RESET)"
 	@$(UV) run python scripts/db_manager.py info
 
+db-cleanup-company: ## Clean up data for a company (keeps company record, usage: make db-cleanup-company ID=2)
+	@if [ -z "$(ID)" ]; then \
+		echo "$(COLOR_YELLOW)Usage: make db-cleanup-company ID=2$(COLOR_RESET)"; \
+		echo "$(COLOR_CYAN)This will delete all documents, extractions, and compiled statements for the company.$(COLOR_RESET)"; \
+	else \
+		echo "$(COLOR_GREEN)Cleaning up data for company ID: $(ID)$(COLOR_RESET)"; \
+		$(UV) run python scripts/db_manager.py cleanup-company $(ID); \
+	fi
+
 db-shell: ## Open database shell
 	@echo "$(COLOR_GREEN)Opening database shell...$(COLOR_RESET)"
 	# TODO: Add database connection command when .env is configured

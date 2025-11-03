@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -9,9 +9,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import type { CompiledStatement } from "@/lib/types";
-import { formatCurrency, formatNumber } from "@/lib/utils/formatters";
+import { formatCurrency } from "@/lib/utils/formatters";
+import { useMemo } from "react";
 
 interface FinancialStatementTableProps {
   statement: CompiledStatement;
@@ -22,6 +22,14 @@ interface StatementRow {
   values: Array<{ year: string; value: number | null; restated?: boolean }>;
   level?: number;
   isTotal?: boolean;
+}
+
+interface LineItemData {
+  name?: string;
+  lineItem?: string;
+  level?: number;
+  isTotal?: boolean;
+  [key: string]: unknown; // For year values and year_restated flags
 }
 
 export function FinancialStatementTable({
@@ -45,22 +53,51 @@ export function FinancialStatementTable({
 
     if (Array.isArray(data.lineItems)) {
       // Format 2
-      data.lineItems.forEach((item: any) => {
+      data.lineItems.forEach((item: unknown) => {
+        if (
+          !item ||
+          typeof item !== "object" ||
+          !("name" in item || "lineItem" in item)
+        ) {
+          return;
+        }
+
+        const lineItemData = item as LineItemData;
         const row: StatementRow = {
-          lineItem: item.name || item.lineItem || "",
+          lineItem:
+            typeof lineItemData.name === "string"
+              ? lineItemData.name
+              : typeof lineItemData.lineItem === "string"
+              ? lineItemData.lineItem
+              : "",
           values: [],
-          level: item.level || 0,
-          isTotal: item.isTotal || false,
+          level:
+            typeof lineItemData.level === "number" ? lineItemData.level : 0,
+          isTotal:
+            typeof lineItemData.isTotal === "boolean"
+              ? lineItemData.isTotal
+              : false,
         };
 
-        Object.keys(item).forEach((key) => {
-          if (key !== "name" && key !== "lineItem" && key !== "level" && key !== "isTotal") {
+        Object.keys(lineItemData).forEach((key) => {
+          if (
+            key !== "name" &&
+            key !== "lineItem" &&
+            key !== "level" &&
+            key !== "isTotal" &&
+            !key.endsWith("_restated")
+          ) {
             const year = key;
             yearSet.add(year);
+            const yearValue: unknown = lineItemData[key];
+            const restatedKey = `${key}_restated`;
+            const restatedValue: unknown = lineItemData[restatedKey];
+
             row.values.push({
               year,
-              value: typeof item[key] === "number" ? item[key] : null,
-              restated: item[`${key}_restated`] || false,
+              value: typeof yearValue === "number" ? yearValue : null,
+              restated:
+                typeof restatedValue === "boolean" ? restatedValue : false,
             });
           }
         });
@@ -74,19 +111,33 @@ export function FinancialStatementTable({
           // Format 3
           (data.columns as string[]).forEach((year) => yearSet.add(year));
         } else if (key === "rows" && Array.isArray(data.rows)) {
-          (data.rows as any[]).forEach((rowData: any) => {
+          data.rows.forEach((rowData: Record<string, unknown>) => {
+            const nameValue: unknown = rowData.name;
+            const lineItemValue: unknown = rowData.lineItem;
+            const levelValue: unknown = rowData.level;
+            const isTotalValue: unknown = rowData.isTotal;
+
             const row: StatementRow = {
-              lineItem: rowData.name || rowData.lineItem || "",
+              lineItem:
+                typeof nameValue === "string"
+                  ? nameValue
+                  : typeof lineItemValue === "string"
+                  ? lineItemValue
+                  : "",
               values: [],
-              level: rowData.level || 0,
-              isTotal: rowData.isTotal || false,
+              level: typeof levelValue === "number" ? levelValue : 0,
+              isTotal: typeof isTotalValue === "boolean" ? isTotalValue : false,
             };
 
             (data.columns as string[]).forEach((year) => {
+              const yearValue: unknown = rowData[year];
+              const restatedValue: unknown = rowData[`${year}_restated`];
+
               row.values.push({
                 year,
-                value: rowData[year] !== undefined ? rowData[year] : null,
-                restated: rowData[`${year}_restated`] || false,
+                value: typeof yearValue === "number" ? yearValue : null,
+                restated:
+                  typeof restatedValue === "boolean" ? restatedValue : false,
               });
             });
 
@@ -104,7 +155,7 @@ export function FinancialStatementTable({
 
         Object.keys(data).forEach((key) => {
           if (yearSet.has(key)) {
-            const yearData = data[key] as Record<string, any>;
+            const yearData = data[key] as Record<string, unknown>;
             Object.keys(yearData).forEach((lineItemName) => {
               if (!lineItemMap.has(lineItemName)) {
                 lineItemMap.set(lineItemName, {
@@ -113,9 +164,10 @@ export function FinancialStatementTable({
                 });
               }
               const row = lineItemMap.get(lineItemName)!;
+              const value: unknown = yearData[lineItemName];
               row.values.push({
                 year: key,
-                value: yearData[lineItemName],
+                value: typeof value === "number" ? value : null,
               });
             });
           }
@@ -133,8 +185,8 @@ export function FinancialStatementTable({
 
     // Sort rows by level and name
     allRows.sort((a, b) => {
-      if ((a.level || 0) !== (b.level || 0)) {
-        return (a.level || 0) - (b.level || 0);
+      if ((a.level ?? 0) !== (b.level ?? 0)) {
+        return (a.level ?? 0) - (b.level ?? 0);
       }
       return a.lineItem.localeCompare(b.lineItem);
     });
@@ -175,7 +227,7 @@ export function FinancialStatementTable({
                 className={`sticky left-0 z-10 bg-background ${
                   row.level ? `pl-${(row.level || 0) * 4}` : ""
                 }`}
-                style={{ paddingLeft: `${(row.level || 0) * 16 + 16}px` }}
+                style={{ paddingLeft: `${(row.level ?? 0) * 16 + 16}px` }}
               >
                 <div className="flex items-center gap-2">
                   {row.lineItem}
@@ -196,7 +248,9 @@ export function FinancialStatementTable({
                       ? formatCurrency(value)
                       : "-"}
                     {valueData?.restated && (
-                      <span className="ml-1 text-xs text-muted-foreground">*</span>
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        *
+                      </span>
                     )}
                   </TableCell>
                 );

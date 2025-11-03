@@ -264,8 +264,16 @@ class ScrapingWorker(BaseWorker):
         )
 
         try:
+            # Get model from config
+            from config import Settings
+
+            settings = Settings()
+            openrouter_model = settings.open_router_model_scraping
+
             # Use Crawl4AI scraping service with OpenRouter
-            async with ScrapingService(openrouter_api_key=openrouter_api_key) as service:
+            async with ScrapingService(
+                openrouter_api_key=openrouter_api_key, openrouter_model=openrouter_model
+            ) as service:
                 # Discover PDFs using deep crawling
                 use_llm = openrouter_api_key is not None
                 discovered_pdfs = await service.discover_pdf_urls(ir_url, use_llm=use_llm)

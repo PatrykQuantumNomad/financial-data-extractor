@@ -1,7 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import type { ApiError } from "@/lib/api/client";
 import { statementsApi } from "@/lib/api/statements";
 import type { StatementType } from "@/lib/types";
-import type { ApiError } from "@/lib/api/client";
+import { useQuery } from "@tanstack/react-query";
 
 // Query keys
 export const statementKeys = {
@@ -10,7 +10,13 @@ export const statementKeys = {
   byCompany: (companyId: number) =>
     [...statementKeys.lists(), "company", companyId] as const,
   byCompanyAndType: (companyId: number, statementType: StatementType) =>
-    [...statementKeys.lists(), "company", companyId, "type", statementType] as const,
+    [
+      ...statementKeys.lists(),
+      "company",
+      companyId,
+      "type",
+      statementType,
+    ] as const,
   detail: (id: number) => [...statementKeys.all, "detail", id] as const,
 };
 
@@ -20,7 +26,7 @@ export function useStatement(id: number) {
     queryKey: statementKeys.detail(id),
     queryFn: () => statementsApi.getById(id),
     enabled: !!id && !isNaN(id),
-    retry: (failureCount, error: any) => {
+    retry: (failureCount, error: unknown) => {
       // Don't retry on 404 errors (statement doesn't exist)
       if ((error as ApiError)?.status === 404) {
         return false;
@@ -46,10 +52,9 @@ export function useStatementByCompanyAndType(
 ) {
   return useQuery({
     queryKey: statementKeys.byCompanyAndType(companyId, statementType),
-    queryFn: () =>
-      statementsApi.getByCompanyAndType(companyId, statementType),
+    queryFn: () => statementsApi.getByCompanyAndType(companyId, statementType),
     enabled: !!companyId && !isNaN(companyId) && !!statementType,
-    retry: (failureCount, error: any) => {
+    retry: (failureCount, error: unknown) => {
       // Don't retry on 404 errors (statement doesn't exist yet - expected case)
       if ((error as ApiError)?.status === 404) {
         return false;

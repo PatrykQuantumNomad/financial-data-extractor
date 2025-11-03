@@ -15,7 +15,7 @@ The Financial Data Extractor automates the labor-intensive process of collecting
 ### Core Objectives
 
 1. **Scrape & Classify**: Identify and categorize PDFs from investor relations websites using Crawl4AI
-2. **Parse**: Extract financial data from Annual Reports using OpenAI GPT-5/LLM
+2. **Parse**: Extract financial data from Annual Reports using LLM (via OpenRouter)
 3. **Compile**: Aggregate 10 years of financial data into unified views
 4. **Deduplicate**: Align and merge similarly-named line items across years
 5. **Prioritize Latest**: Use restated data from newer reports when available
@@ -23,14 +23,15 @@ The Financial Data Extractor automates the labor-intensive process of collecting
 ### Technology Stack
 
 **Backend**: FastAPI, Celery, PostgreSQL, Redis, SQLAlchemy, Alembic  
-**Frontend**: Next.js 15, React 19, TypeScript, TailwindCSS, shadcn/ui  
-**Processing**: OpenAI GPT-5, PyMuPDF, pdfplumber, Crawl4AI, rapidfuzz  
-**Infrastructure**: Docker, Flower (Celery monitoring), PostgreSQL 16, Redis 8
+**Frontend**: Next.js 15, React 19, TypeScript, TailwindCSS, shadcn/ui, React Query  
+**Processing**: OpenRouter (LLM API gateway), PyMuPDF, pdfplumber, Crawl4AI, rapidfuzz  
+**Infrastructure**: Docker, Flower (Celery monitoring), PostgreSQL 16, Redis 8, MinIO, Prometheus, Grafana, Loki
 
 ### Target Companies
 
-- **Initial Scope**: 2-3 European companies (e.g., Adyen, Heineken)
-- **Scalable**: Architecture supports adding more companies dynamically
+- **Initial Scope**: 6 European companies seeded in database migrations
+  - AstraZeneca PLC, SAP SE, Siemens AG, ASML Holding N.V., Unilever PLC, Allianz SE
+- **Scalable**: Architecture supports adding more companies dynamically via API
 
 ## Documentation
 
@@ -52,9 +53,9 @@ Complete documentation available on GitHub Pages including:
 git clone https://github.com/PatrykQuantumNomad/financial-data-extractor.git
 cd financial-data-extractor
 
-# Setup infrastructure (PostgreSQL, Redis, Flower)
+# Setup infrastructure (PostgreSQL, Redis, MinIO, monitoring)
 cd infrastructure
-make up
+make up-dev
 
 # Setup backend
 cd ../backend
@@ -65,14 +66,21 @@ make migrate
 make run
 
 # Start Celery worker in another terminal
-cd backend
 make celery-worker
 
 # Setup frontend in a third terminal
-cd frontend
+cd ../frontend
 npm install
 npm run dev
 ```
+
+**Access Points:**
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:3030`
+- API Docs: `http://localhost:3030/docs`
+- Grafana: `http://localhost:3200` (admin/admin)
+- Flower: `http://localhost:5555`
+- MinIO Console: `http://localhost:9001`
 
 For detailed setup instructions, see the [Full Documentation](https://patrykquantumnomad.github.io/financial-data-extractor/infrastructure-development).
 

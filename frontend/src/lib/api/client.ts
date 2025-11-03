@@ -1,12 +1,34 @@
-import axios, { AxiosInstance, InternalAxiosRequestConfig } from "axios";
+import axios, {
+  type AxiosError,
+  type AxiosInstance,
+  type AxiosResponse,
+  type InternalAxiosRequestConfig,
+} from "axios";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3030";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3030";
 
 // Custom error type for better type safety
 export interface ApiError extends Error {
   status?: number;
-  response?: any;
+  response?: unknown;
   code?: string;
+}
+
+// Type guard for Axios errors
+function isAxiosError(error: unknown): error is AxiosError {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "isAxiosError" in error &&
+    (error as { isAxiosError?: unknown }).isAxiosError === true
+  );
+}
+
+// Type guard for error response data
+function isErrorResponseData(
+  data: unknown
+): data is { detail?: string; message?: string; error?: string } {
+  return typeof data === "object" && data !== null;
 }
 
 export const apiClient: AxiosInstance = axios.create({
@@ -27,21 +49,33 @@ apiClient.interceptors.request.use(
     // }
 
     // Add request timestamp for debugging
-    (config as any).metadata = { startTime: new Date() };
+    (config as unknown as Record<string, unknown>).metadata = {
+      startTime: new Date(),
+    };
 
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
+  (error: unknown) => {
+    // Ensure we always reject with an Error
+    const rejectionError =
+      error instanceof Error ? error : new Error(String(error));
+    return Promise.reject(rejectionError);
   }
 );
 
 // Add response interceptor for error handling
 apiClient.interceptors.response.use(
-  (response) => {
+  (response: AxiosResponse) => {
     // Log response time in development
     if (process.env.NODE_ENV === "development") {
-      const startTime = (response.config as any).metadata?.startTime;
+      const configWithMetadata = response.config as unknown as Record<
+        string,
+        unknown
+      >;
+      const metadata = configWithMetadata.metadata as
+        | { startTime: Date }
+        | undefined;
+      const startTime = metadata?.startTime;
       if (startTime) {
         const duration = new Date().getTime() - startTime.getTime();
         if (duration > 1000) {
@@ -53,11 +87,12 @@ apiClient.interceptors.response.use(
     }
     return response;
   },
-  (error) => {
-    if (error.response) {
+  (error: unknown) => {
+    if (isAxiosError(error) && error.response) {
       // Server responded with error
-      const status = error.response.status;
-      const data = error.response.data;
+      const response = error.response;
+      const status = response.status;
+      const data = response.data;
 
       // Build a meaningful error message first
       let errorMessage = "API request failed";
@@ -66,7 +101,10 @@ apiClient.interceptors.response.use(
         errorMessage = "Resource not found";
         // 404s are expected for missing resources, log at debug level
         if (process.env.NODE_ENV === "development") {
-          console.log(`[API] Resource not found: ${error.config?.url}`);
+          const configUrl = error.config?.url;
+          if (configUrl) {
+            console.log(`[API] Resource not found: ${configUrl}`);
+          }
         }
       } else if (status === 401) {
         errorMessage = "Unauthorized access";
@@ -76,21 +114,27 @@ apiClient.interceptors.response.use(
         errorMessage = "Internal server error";
       } else if (data) {
         // Try to extract error message from response
-        errorMessage =
-          data.detail ||
-          data.message ||
-          data.error ||
-          (typeof data === "string" ? data : errorMessage);
-      } else if (error.response.statusText) {
-        errorMessage = `${status} ${error.response.statusText}`;
+        if (isErrorResponseData(data)) {
+          errorMessage =
+            data.detail ??
+            data.message ??
+            data.error ??
+            (typeof data === "string" ? data : errorMessage) ??
+            errorMessage;
+        } else if (typeof data === "string") {
+          errorMessage = data;
+        }
+      } else if (response.statusText) {
+        errorMessage = `${status} ${response.statusText}`;
       }
 
       // Only log non-404 errors as errors (404s are expected for missing resources)
       if (status !== 404) {
+        const configUrl = error.config?.url;
         const logData: Record<string, unknown> = {
           status,
-          statusText: error.response.statusText,
-          url: error.config?.url,
+          statusText: response.statusText,
+          url: configUrl,
         };
 
         // Only include data if it's not empty and has meaningful content
@@ -105,13 +149,15 @@ apiClient.interceptors.response.use(
 
       const apiError: ApiError = new Error(errorMessage);
       apiError.status = status;
-      apiError.response = error.response;
+      apiError.response = response;
       throw apiError;
-    } else if (error.request) {
+    } else if (isAxiosError(error) && error.request) {
       // Request made but no response
+      const configUrl = error.config?.url;
+      const configMethod = error.config?.method;
       console.error("Network Error: No response received", {
-        url: error.config?.url,
-        method: error.config?.method?.toUpperCase(),
+        url: configUrl,
+        method: configMethod?.toUpperCase(),
       });
 
       const networkError: ApiError = new Error(
@@ -119,7 +165,11 @@ apiClient.interceptors.response.use(
       );
       networkError.code = "NETWORK_ERROR";
       throw networkError;
-    } else if (error.code === "ECONNABORTED") {
+    } else if (
+      isAxiosError(error) &&
+      "code" in error &&
+      error.code === "ECONNABORTED"
+    ) {
       // Request timeout
       const timeoutError: ApiError = new Error(
         "Request timeout. The server took too long to respond."
@@ -128,8 +178,12 @@ apiClient.interceptors.response.use(
       throw timeoutError;
     } else {
       // Something else happened
-      console.error("Error:", error.message);
-      throw error;
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error("Error:", errorMessage);
+      const finalError =
+        error instanceof Error ? error : new Error(errorMessage);
+      throw finalError;
     }
   }
 );

@@ -1,5 +1,5 @@
-import { QueryClient, DefaultOptions } from "@tanstack/react-query";
 import type { ApiError } from "@/lib/api/client";
+import { QueryClient, type DefaultOptions } from "@tanstack/react-query";
 
 const queryConfig: DefaultOptions = {
   queries: {
@@ -7,7 +7,7 @@ const queryConfig: DefaultOptions = {
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
     refetchOnMount: true,
-    
+
     // Retry configuration
     retry: (failureCount, error) => {
       // Don't retry on 4xx errors except 429 (rate limit)
@@ -20,10 +20,10 @@ const queryConfig: DefaultOptions = {
       // Retry 5xx errors up to 2 times
       return failureCount < 2;
     },
-    
+
     // Default stale time - data is fresh for 1 minute
     staleTime: 60 * 1000,
-    
+
     // Keep unused data in cache for 5 minutes
     gcTime: 5 * 60 * 1000,
   },

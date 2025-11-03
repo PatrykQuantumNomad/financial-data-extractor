@@ -68,17 +68,20 @@ def extract_financial_statements(self: Task, document_id: int) -> dict[str, Any]
         # Create progress callback for worker
         progress_callback = CeleryProgressCallback(self)
 
-        # Get OpenAI client
+        # Get OpenRouter settings
         settings = Settings()
-        from openai import OpenAI
-
-        openai_client = OpenAI(api_key=settings.openai_api_key)
 
         # Create worker with database session
         async def _execute_worker():
             async with get_db_context() as session:
                 storage_service = create_storage_service_from_config()
-                worker = ExtractionWorker(session, openai_client, progress_callback, storage_service)
+                worker = ExtractionWorker(
+                    session,
+                    openrouter_api_key=settings.open_router_api_key,
+                    openrouter_model=settings.open_router_model_extraction,
+                    progress_callback=progress_callback,
+                    storage_service=storage_service,
+                )
                 return await worker.extract_financial_statements(document_id)
 
         result = run_async(_execute_worker())
@@ -102,7 +105,7 @@ def extract_financial_statements(self: Task, document_id: int) -> dict[str, Any]
         )
         # Retry on transient errors
         if isinstance(e, (ConnectionError, TimeoutError)):
-            raise self.retry(exc=e)
+            raise self.retry(exc=e) from e
         raise
 
 
@@ -133,17 +136,20 @@ def process_document(self: Task, document_id: int) -> dict[str, Any]:
         # Create progress callback for worker
         progress_callback = CeleryProgressCallback(self)
 
-        # Get OpenAI client
+        # Get OpenRouter settings
         settings = Settings()
-        from openai import OpenAI
-
-        openai_client = OpenAI(api_key=settings.openai_api_key)
 
         # Create worker with database session
         async def _execute_worker():
             async with get_db_context() as session:
                 storage_service = create_storage_service_from_config()
-                worker = ExtractionWorker(session, openai_client, progress_callback, storage_service)
+                worker = ExtractionWorker(
+                    session,
+                    openrouter_api_key=settings.open_router_api_key,
+                    openrouter_model=settings.open_router_model_extraction,
+                    progress_callback=progress_callback,
+                    storage_service=storage_service,
+                )
                 return await worker.process_document(document_id)
 
         result = run_async(_execute_worker())

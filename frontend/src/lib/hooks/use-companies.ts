@@ -1,6 +1,6 @@
 import { companiesApi } from "@/lib/api/companies";
 import { useQuery } from "@tanstack/react-query";
-import { ApiError } from "../api/client";
+import { type ApiError } from "../api/client";
 
 // Query keys
 export const companyKeys = {
@@ -27,7 +27,7 @@ export function useCompany(id: number) {
     queryKey: companyKeys.detail(id),
     queryFn: () => companiesApi.getById(id),
     enabled: !!id && !isNaN(id),
-    retry: (failureCount, error: any) => {
+    retry: (failureCount, error: unknown) => {
       // Don't retry on 404 errors (company doesn't exist)
       if ((error as ApiError)?.status === 404) {
         return false;
@@ -43,7 +43,7 @@ export function useCompanyByTicker(ticker: string) {
     queryKey: companyKeys.ticker(ticker),
     queryFn: () => companiesApi.getByTicker(ticker),
     enabled: !!ticker,
-    retry: (failureCount, error: any) => {
+    retry: (failureCount, error: unknown) => {
       if ((error as ApiError)?.status === 404) {
         return false;
       }

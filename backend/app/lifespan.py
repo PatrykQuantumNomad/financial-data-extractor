@@ -11,9 +11,10 @@ Copyright: 2025 Patryk Golabek
 import logging
 from contextlib import asynccontextmanager
 
+from fastapi import FastAPI
+
 from app.db.base import async_engine
 from config import Settings
-from fastapi import FastAPI
 
 
 class LifespanManager:

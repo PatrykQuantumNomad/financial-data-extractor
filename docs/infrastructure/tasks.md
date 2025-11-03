@@ -77,7 +77,7 @@ POST /api/v1/tasks/companies/{company_id}/extract
 **Example:**
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/tasks/companies/1/extract
+curl -X POST http://localhost:3030/api/v1/tasks/companies/1/extract
 ```
 
 **Response:**
@@ -355,14 +355,14 @@ Flower runs with `--persistent=True` to maintain task history in a local SQLite 
 1. **Trigger Extraction**
 
    ```bash
-   curl -X POST http://localhost:3000/api/v1/tasks/companies/1/extract
+   curl -X POST http://localhost:3030/api/v1/tasks/companies/1/extract
    ```
 
    Returns: `task_id`
 
 2. **Monitor in Flower**
 
-   - Open http://localhost:3000:5555
+   - Open http://localhost:5555
    - Navigate to "Tasks" tab
    - Search for your `task_id`
    - Watch task progress through states:
@@ -371,7 +371,7 @@ Flower runs with `--persistent=True` to maintain task history in a local SQLite 
 3. **Check Status via API**
 
    ```bash
-   curl http://localhost:3000/api/v1/tasks/{task_id}
+   curl http://localhost:3030/api/v1/tasks/{task_id}
    ```
 
 4. **View Results**

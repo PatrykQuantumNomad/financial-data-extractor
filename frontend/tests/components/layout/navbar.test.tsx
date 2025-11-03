@@ -29,9 +29,9 @@ describe("Navbar", () => {
     render(<Navbar />);
 
     const buttons = screen.getAllByRole("button");
-    expect(buttons).toHaveLength(2);
+    expect(buttons).toHaveLength(3);
 
-    // Both buttons should have ghost styling
+    // All buttons should have ghost styling
     buttons.forEach(button => {
       expect(button).toHaveClass("hover:bg-accent");
     });
@@ -42,7 +42,7 @@ describe("Navbar", () => {
 
     const navbar = screen.getByRole("navigation");
     expect(navbar).toBeInTheDocument();
-    expect(navbar).toHaveClass("border-b", "bg-background");
+    expect(navbar).toHaveClass("border-b", "bg-background/95", "backdrop-blur-sm", "shadow-sm", "sticky", "top-0", "z-50");
   });
 
   it("renders home link with logo and text", () => {

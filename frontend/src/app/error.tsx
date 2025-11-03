@@ -1,11 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
-import Link from "next/link";
 import { Navbar } from "@/components/layout/navbar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, RefreshCw, Home, Bug } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { AlertTriangle, Bug, Home, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { useEffect } from "react";
 
 interface ErrorProps {
   error: Error & { digest?: string };
@@ -28,7 +34,9 @@ export default function Error({ error, reset }: ErrorProps) {
               <div className="flex justify-center mb-4">
                 <AlertTriangle className="h-16 w-16 text-destructive" />
               </div>
-              <CardTitle className="text-3xl mb-2">Something went wrong!</CardTitle>
+              <CardTitle className="text-3xl mb-2">
+                Something went wrong!
+              </CardTitle>
               <CardDescription className="text-lg">
                 An unexpected error occurred while processing your request.
               </CardDescription>
@@ -83,7 +91,7 @@ export default function Error({ error, reset }: ErrorProps) {
                       Development Error Stack
                     </summary>
                     <pre className="mt-2 p-4 bg-muted rounded-md overflow-auto text-xs">
-                      {error.stack || "No stack trace available"}
+                      {error.stack ?? "No stack trace available"}
                     </pre>
                   </details>
                 </div>
