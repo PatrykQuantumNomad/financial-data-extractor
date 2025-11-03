@@ -7,13 +7,16 @@ Author: Patryk Golabek
 Copyright: 2025 Patryk Golabek
 """
 
+import io
 import json
 import logging
+from pathlib import Path
 from typing import Any
 
 from openai import OpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.storage import IStorageService
 from app.db.repositories.document import DocumentRepository
 from app.db.repositories.extraction import ExtractionRepository
 from app.workers.base import BaseWorker
@@ -35,6 +38,7 @@ class ExtractionWorker(BaseWorker):
         session: AsyncSession,
         openai_client: OpenAI | None = None,
         progress_callback: Any | None = None,
+        storage_service: IStorageService | None = None,
     ):
         """Initialize extraction worker.
 
@@ -42,12 +46,14 @@ class ExtractionWorker(BaseWorker):
             session: Database async session.
             openai_client: Optional OpenAI client (will be created if not provided).
             progress_callback: Optional callback for progress updates.
+            storage_service: Optional storage service for PDF files.
         """
         super().__init__(progress_callback)
         self.session = session
         self.document_repo = DocumentRepository(session)
         self.extraction_repo = ExtractionRepository(session)
         self.openai_client = openai_client
+        self.storage_service = storage_service
 
     async def extract_financial_statements(self, document_id: int) -> dict[str, Any]:
         """Extract financial statements from a PDF document using LLM.
@@ -73,7 +79,7 @@ class ExtractionWorker(BaseWorker):
         if not document_data:
             raise ValueError(f"Document with id {document_id} not found")
 
-        file_path = document_data.get("file_path")
+        file_path = document_data.file_path
         if not file_path:
             raise ValueError(f"Document {document_id} has no file_path - download PDF first")
 
@@ -152,8 +158,10 @@ class ExtractionWorker(BaseWorker):
     async def _process_pdf(self, file_path: str) -> dict[str, Any]:
         """Process PDF file and extract text/tables.
 
+        Handles both local file paths and object storage keys.
+
         Args:
-            file_path: Path to PDF file.
+            file_path: Path to PDF file or object key.
 
         Returns:
             Dictionary with extracted content and metadata.
@@ -161,7 +169,22 @@ class ExtractionWorker(BaseWorker):
         try:
             import fitz  # PyMuPDF
 
-            doc = fitz.open(file_path)
+            # Determine if this is a local path or object storage key
+            local_path = Path(file_path)
+            is_local_file = local_path.exists()
+
+            if is_local_file:
+                # Legacy local file handling
+                doc = fitz.open(str(local_path))
+            elif self.storage_service:
+                # Object storage handling
+                file_content = await self.storage_service.get_file(file_path)
+                doc = fitz.open(stream=io.BytesIO(file_content), filetype="pdf")
+            else:
+                raise ValueError(
+                    f"Cannot open PDF: {file_path} (not local file and no storage service)"
+                )
+
             text_content = []
             tables = []
             page_count = len(doc)
@@ -327,7 +350,7 @@ Document content:
             statements_data: Dictionary with statement types and extracted data.
 
         Returns:
-            List of created extraction records.
+            List of created extraction records as dictionaries.
         """
         created_extractions = []
 
@@ -348,6 +371,6 @@ Document content:
             )
 
             if extraction:
-                created_extractions.append(extraction)
+                created_extractions.append(await self.extraction_repo._model_to_dict(extraction))
 
         return created_extractions

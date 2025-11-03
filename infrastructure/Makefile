@@ -9,8 +9,8 @@ COMPOSE_FILE_DEV := docker/docker-compose.dev.yml
 
 DC_DEV := docker compose -p $(PROJECT_NAME_DEV) -f $(COMPOSE_FILE_DEV)
 
-.PHONY: help up down restart ps logs logs-postgres logs-redis stop destroy reset psql redis-cli pgadmin url health \
-        up-dev down-dev restart-dev ps-dev logs-dev logs-postgres-dev logs-redis-dev stop-dev destroy-dev reset-dev
+.PHONY: help up down restart ps logs logs-postgres logs-redis logs-minio stop destroy reset psql redis-cli pgadmin minio url health \
+        up-dev down-dev restart-dev ps-dev logs-dev logs-postgres-dev logs-redis-dev logs-minio-dev stop-dev destroy-dev reset-dev
 
 help:
 	@echo "Infrastructure commands (DEV uses $(COMPOSE_FILE_DEV); PROD uses $(COMPOSE_FILE_PROD)):"
@@ -21,15 +21,16 @@ help:
 	@echo "    make reset-dev      - Destroy then start fresh (dev)"
 	@echo "    make ps-dev         - Show dev service status"
 	@echo "    make logs-dev       - Tail all dev logs"
-	@echo "    make logs-postgres-dev / logs-redis-dev"
+	@echo "    make logs-postgres-dev / logs-redis-dev / logs-minio-dev"
 	@echo "    make restart-dev    - Restart dev services"
 	@echo "    make psql           - Open psql shell to dev Postgres"
 	@echo "    make redis-cli      - Open redis-cli to dev Redis"
 	@echo "    make pgadmin        - Open pgAdmin (dev only)"
+	@echo "    make minio          - Open MinIO console (dev only)"
 	@echo "    make url            - Print dev service URLs"
 	@echo "    make health         - Check dev container health"
 	@echo ""
-	@echo "Shortcuts (DEV defaults): up, down, destroy, reset, restart, ps, logs, logs-postgres, logs-redis, url, health"
+	@echo "Shortcuts (DEV defaults): up, down, destroy, reset, restart, ps, logs, logs-postgres, logs-redis, logs-minio, url, health"
 
 # Shortcuts defaulting to DEV stack
 up: up-dev
@@ -44,6 +45,7 @@ logs-postgres: logs-postgres-dev
 logs-redis: logs-redis-dev
 url: url-dev
 health: health-dev
+logs-minio: logs-minio-dev
 
 # DEV targets
 up-dev:
@@ -76,6 +78,9 @@ logs-postgres-dev:
 logs-redis-dev:
 	$(DC_DEV) logs -f --tail=200 redis
 
+logs-minio-dev:
+	$(DC_DEV) logs -f --tail=200 minio
+
 # Tools (DEV stack)
 psql:
 	@$(DC_DEV) exec -e PGPASSWORD=postgres postgres psql -h localhost -U postgres -d financial_data_extractor || \
@@ -88,12 +93,17 @@ redis-cli:
 pgadmin:
 	@open http://localhost:5050 || xdg-open http://localhost:5050 || true
 
+minio:
+	@open http://localhost:9001 || xdg-open http://localhost:9001 || true
+
 url-dev:
 	@echo "[DEV] Postgres:        postgres://postgres:postgres@localhost:5432/financial_data_extractor"
 	@echo "[DEV] pgAdmin:         http://localhost:5050 (admin@local.dev / adminadmin)"
 	@echo "[DEV] Redis:           redis://localhost:6379"
 	@echo "[DEV] Redis Commander: http://localhost:8081"
-	@echo "[DEV] Flower:           http://localhost:5555 (Celery monitoring)"
+	@echo "[DEV] Flower:          http://localhost:5555 (Celery monitoring)"
+	@echo "[DEV] MinIO API:       http://localhost:9000 (S3-compatible)"
+	@echo "[DEV] MinIO Console:   http://localhost:9001 (minioadmin / minioadmin)"
 
 health-dev:
 	@echo "Checking DEV container health..."

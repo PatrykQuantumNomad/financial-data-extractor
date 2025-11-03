@@ -46,6 +46,35 @@ class Settings(BaseSettings):
 
     # LLM configuration
     openai_api_key: str = Field(..., description="API key for OpenAI services.")
+    open_router_api_key: str = Field(..., description="API key for OpenRouter services.")
+
+    # PDF storage configuration (legacy local storage)
+    pdf_storage_base_path: str = Field(
+        "data/pdfs", description="Base path for storing PDF documents (legacy)."
+    )
+    max_crawl_depth: int = Field(
+        2, description="Maximum depth for deep crawling investor relations websites."
+    )
+
+    # MinIO (S3-compatible) object storage configuration
+    minio_enabled: bool = Field(
+        True, description="Whether to use MinIO/S3 object storage for PDF files."
+    )
+    minio_endpoint: str = Field(
+        ..., description="MinIO/S3 endpoint URL (e.g., localhost:9000)."
+    )
+    minio_access_key: str = Field(
+        ..., description="MinIO/S3 access key."
+    )
+    minio_secret_key: str = Field(
+        ..., description="MinIO/S3 secret key."
+    )
+    minio_bucket_name: str = Field(
+        "financial-documents", description="Bucket name for storing PDF files."
+    )
+    minio_use_ssl: bool = Field(
+        False, description="Whether to use SSL/TLS for MinIO connection."
+    )
 
     # Server configuration
     host: str = Field("0.0.0.0", description="Host address where the server will listen.")
@@ -60,7 +89,9 @@ class Settings(BaseSettings):
     server_log_level: str = Field("info", description="Log level for server-related logs.")
     app_log_level: str = Field("debug", description="Log level for application-specific logs.")
     logging_path: str = Field("logging.json", description="Path to the logging configuration file.")
-    app_name: str = Field("financial-data-extractor-api", description="Name of the FastAPI application.")
+    app_name: str = Field(
+        "financial-data-extractor-api", description="Name of the FastAPI application."
+    )
     app_version: str = Field("1.0.0", description="Version of the FastAPI application.")
 
     model_config = {"env_file": ".env", "frozen": True}

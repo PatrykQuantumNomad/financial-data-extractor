@@ -12,6 +12,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.storage import IStorageService
 from app.db.repositories.company import CompanyRepository
 from app.workers.base import BaseWorker
 from app.workers.compilation_worker import CompilationWorker
@@ -32,6 +33,7 @@ class OrchestrationWorker(BaseWorker):
         scraping_worker: ScrapingWorker | None = None,
         compilation_worker: CompilationWorker | None = None,
         progress_callback: Any | None = None,
+        storage_service: IStorageService | None = None,
     ):
         """Initialize orchestration worker.
 
@@ -40,11 +42,12 @@ class OrchestrationWorker(BaseWorker):
             scraping_worker: Optional ScrapingWorker instance (created if not provided).
             compilation_worker: Optional CompilationWorker instance (created if not provided).
             progress_callback: Optional callback for progress updates.
+            storage_service: Optional storage service for PDF files.
         """
         super().__init__(progress_callback)
         self.session = session
         self.company_repo = CompanyRepository(session)
-        self.scraping_worker = scraping_worker or ScrapingWorker(session, progress_callback)
+        self.scraping_worker = scraping_worker or ScrapingWorker(session, progress_callback, storage_service)
         self.compilation_worker = compilation_worker or CompilationWorker(
             session, progress_callback
         )
@@ -85,7 +88,7 @@ class OrchestrationWorker(BaseWorker):
 
         settings = Settings()
         scrape_result = await self.scraping_worker.scrape_investor_relations(
-            company_id, settings.openai_api_key
+            company_id, settings.open_router_api_key
         )
         discovered_documents = scrape_result.get("documents", [])
 

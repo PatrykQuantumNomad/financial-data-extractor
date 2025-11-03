@@ -96,8 +96,28 @@ services:
       - REDIS_DB=0
       - REDIS_PASSWORD=
 
+  minio:
+    image: minio/minio:latest
+    container_name: fde-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # Web console
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
 volumes:
   postgres-data:
   pgadmin-data:
   redis-data:
   flower-data:
+  minio-data:

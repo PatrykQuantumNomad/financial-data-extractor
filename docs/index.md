@@ -84,7 +84,7 @@ graph TB
 
     subgraph "External Services"
         F[OpenAI GPT-5 API]
-        G[File Storage - PDFs]
+        G[MinIO Object Storage]
     end
 
     A -->|REST API| B1
@@ -97,6 +97,7 @@ graph TB
     W1 -->|Store PDFs| G
     W1 -->|Metadata| D
     W2 -->|Extract Data| F
+    W2 -->|Read PDFs| G
     W2 -->|Raw Extractions| D
     W3 -->|Compiled Statements| D
     C -->|Task Queue| E
@@ -138,7 +139,7 @@ graph TB
    - Filename patterns
    - Document metadata
    - Content sampling
-6. Stores PDFs locally or in S3-compatible storage
+6. Stores PDFs in MinIO object storage
 7. Creates database records for each PDF with metadata
 
 ### Phase 2: Parsing & Extraction
@@ -279,6 +280,7 @@ See [Task Processing Documentation](infrastructure/tasks.md) for complete detail
 - UV package manager
 - PostgreSQL 16+
 - Redis 7+
+- MinIO (object storage) - runs via Docker Compose
 
 ### Initial Setup
 
@@ -332,8 +334,9 @@ This documentation site provides comprehensive guides organized by category:
 ### Infrastructure
 
 - **[Infrastructure Overview](infrastructure/)** - Docker setup, development environment, and task processing
-  - **[Development Setup](infrastructure/development.md)** - Docker Compose setup and service management
-  - **[Task Processing](infrastructure/tasks.md)** - Celery task system, workers, Flower monitoring
+- **[Development Setup](infrastructure/development.md)** - Docker Compose setup and service management
+- **[Task Processing](infrastructure/tasks.md)** - Celery task system, workers, Flower monitoring
+- **[Object Storage](../docs/storage.md)** - MinIO object storage setup and usage
 
 ### Testing
 

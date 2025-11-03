@@ -46,12 +46,14 @@
   "[python]": {
     "editor.defaultFormatter": "charliermarsh.ruff",
     "editor.formatOnSave": true,
-    "editor.formatOnType": true,
     "editor.codeActionsOnSave": {
-      "source.fixAll": "explicit",
-      "source.organizeImports": "explicit"
+      "source.fixAll.ruff": "explicit",
+      "source.organizeImports.ruff": "explicit"
     }
   },
+
+  "ruff.organizeImports": true,
+  "ruff.fixAll": true,
 
   "[JSON]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
@@ -62,9 +64,8 @@
     "editor.formatOnSave": true
   },
 
-  "python.defaultInterpreterPath": "backend/.venv/bin/python",
-  "python.venvPath": "backend/.venv",
-  "ruff.path": "backend/.venv/bin/ruff",
+  "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
+  "python.venvPath": "${workspaceFolder}/backend/.venv",
 
   "[markdown]": {
     "editor.wordWrapColumn": 80,
@@ -128,6 +129,7 @@
     "loglevel",
     "mypy",
     "ondelete",
+    "openrouter",
     "poolclass",
     "psql",
     "pycache",

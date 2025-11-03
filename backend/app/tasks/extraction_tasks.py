@@ -13,6 +13,7 @@ from typing import Any
 
 from celery import Task
 
+from app.core.storage import StorageServiceConfig, create_storage_service
 from app.tasks.celery_app import celery_app
 from app.tasks.progress import CeleryProgressCallback
 from app.tasks.utils import get_db_context, run_async, validate_task_result
@@ -20,6 +21,20 @@ from app.workers.extraction_worker import ExtractionWorker
 from config import Settings
 
 logger = logging.getLogger(__name__)
+
+
+def create_storage_service_from_config() -> Any:
+    """Create storage service instance from application settings."""
+    settings = Settings()
+    config = StorageServiceConfig(
+        enabled=settings.minio_enabled,
+        endpoint=settings.minio_endpoint,
+        access_key=settings.minio_access_key,
+        secret_key=settings.minio_secret_key,
+        bucket_name=settings.minio_bucket_name,
+        use_ssl=settings.minio_use_ssl,
+    )
+    return create_storage_service(config)
 
 
 @celery_app.task(
@@ -62,7 +77,8 @@ def extract_financial_statements(self: Task, document_id: int) -> dict[str, Any]
         # Create worker with database session
         async def _execute_worker():
             async with get_db_context() as session:
-                worker = ExtractionWorker(session, openai_client, progress_callback)
+                storage_service = create_storage_service_from_config()
+                worker = ExtractionWorker(session, openai_client, progress_callback, storage_service)
                 return await worker.extract_financial_statements(document_id)
 
         result = run_async(_execute_worker())
@@ -126,7 +142,8 @@ def process_document(self: Task, document_id: int) -> dict[str, Any]:
         # Create worker with database session
         async def _execute_worker():
             async with get_db_context() as session:
-                worker = ExtractionWorker(session, openai_client, progress_callback)
+                storage_service = create_storage_service_from_config()
+                worker = ExtractionWorker(session, openai_client, progress_callback, storage_service)
                 return await worker.process_document(document_id)
 
         result = run_async(_execute_worker())
