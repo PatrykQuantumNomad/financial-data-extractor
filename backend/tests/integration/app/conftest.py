@@ -12,6 +12,7 @@ from urllib.parse import unquote, urlparse
 
 import pytest
 from alembic.config import Config
+from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
@@ -24,6 +25,32 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from app import create_app
 from config import Settings
+
+
+@pytest.fixture(scope="session", autouse=True)
+def load_env_files():
+    """Load .env files early so they're available at test collection time.
+
+    This fixture runs automatically before any tests are collected,
+    making .env values available for @pytest.mark.skipif decorators.
+    """
+    # Get project root directory (parent of backend directory)
+    backend_dir = Path(__file__).resolve().parent.parent.parent
+    project_root = backend_dir.parent
+    root_env_file = project_root / ".env"
+    backend_env_file = backend_dir / ".env"
+
+    # Load .env files in order of precedence:
+    # 1. Backend .env (if exists) - loaded first as base values
+    if backend_env_file.exists():
+        load_dotenv(backend_env_file, override=False)
+
+    # 2. Root .env (if exists) - takes precedence over backend .env
+    # override=True allows root .env to override backend .env values
+    if root_env_file.exists():
+        load_dotenv(root_env_file, override=True)
+
+    yield
 
 
 @pytest.fixture(scope="session")
@@ -96,7 +123,14 @@ def db_pool(db_url):
 
 @pytest.fixture
 def test_settings(db_url):
-    """Create test settings with database URL from testcontainer."""
+    """Create test settings with database URL from testcontainer.
+
+    Loads values from root .env file first, then applies test overrides.
+    Test defaults are only used if values aren't in .env or environment.
+    """
+    # Get project root directory
+    backend_dir = Path(__file__).resolve().parent.parent.parent
+
     # Parse URL using urlparse for proper handling of special characters
     clean_url = db_url.replace("postgresql+psycopg://", "postgresql://")
 
@@ -109,17 +143,79 @@ def test_settings(db_url):
 
     # Store original env vars
     original_env = {}
-    env_keys = ["db_host", "db_port", "db_name", "db_username", "db_password"]
+    env_keys = [
+        "db_host",
+        "db_port",
+        "db_name",
+        "db_username",
+        "db_password",
+        "redis_host",
+        "redis_port",
+        "redis_db",
+        "redis_password",
+        "openai_api_key",
+        "open_router_api_key",
+        "minio_endpoint",
+        "minio_access_key",
+        "minio_secret_key",
+    ]
 
     try:
-        # Set environment variables for Settings
+        # Store original values
+        for key in env_keys:
+            original_env[key] = os.environ.get(key)
+
+        # Load .env files in order of precedence:
+        # 1. Backend .env (if exists) - loaded first as base values
+        backend_env_file = backend_dir / ".env"
+        if backend_env_file.exists():
+            load_dotenv(backend_env_file, override=False)
+
+        # Override database settings with testcontainer values (always use test DB)
         os.environ["db_host"] = host
         os.environ["db_port"] = port
         os.environ["db_name"] = db_name
         os.environ["db_username"] = username
         os.environ["db_password"] = password
 
-        # Create settings with env vars
+        # Set required env vars with test defaults ONLY if not already set from .env
+        # This allows .env values to be used when available
+        os.environ.setdefault("redis_host", "localhost")
+        os.environ.setdefault("redis_port", "6379")
+        os.environ.setdefault("redis_db", "0")
+        os.environ.setdefault("redis_password", "test_password")
+        os.environ.setdefault("openai_api_key", "test_key")
+        os.environ.setdefault("open_router_api_key", "test_key")
+        os.environ.setdefault("minio_endpoint", "localhost:9000")
+        os.environ.setdefault("minio_access_key", "minioadmin")
+        os.environ.setdefault("minio_secret_key", "minioadmin")
+
+        # Use upper-case environment variable values for Settings if present (test runs may set both)
+        # Priority: UPPERCASE (real secrets from environment) over lowercase (test/dummy)
+        # This is a temporary patch until config is fully standardized
+
+        # Patch: overwrite lower-case os.environ keys with UPPERCASE if set (avoids 'test_key' leakage)
+        ENV_COMPAT_KEYS = [
+            ("db_host", "DB_HOST"),
+            ("db_port", "DB_PORT"),
+            ("db_name", "DB_NAME"),
+            ("db_username", "DB_USERNAME"),
+            ("db_password", "DB_PASSWORD"),
+            ("redis_host", "REDIS_HOST"),
+            ("redis_port", "REDIS_PORT"),
+            ("redis_db", "REDIS_DB"),
+            ("redis_password", "REDIS_PASSWORD"),
+            ("openai_api_key", "OPENAI_API_KEY"),
+            ("open_router_api_key", "OPEN_ROUTER_API_KEY"),
+            ("minio_endpoint", "MINIO_ENDPOINT"),
+            ("minio_access_key", "MINIO_ACCESS_KEY"),
+            ("minio_secret_key", "MINIO_SECRET_KEY"),
+        ]
+        for lower, upper in ENV_COMPAT_KEYS:
+            if upper in os.environ:
+                os.environ[lower] = os.environ[upper]
+
+        # Create settings with corrected env vars (Settings will read from os.environ)
         settings = Settings()
 
         yield settings
@@ -127,7 +223,7 @@ def test_settings(db_url):
     finally:
         # Restore original env vars
         for key in env_keys:
-            if key in original_env:
+            if original_env.get(key) is not None:
                 os.environ[key] = original_env[key]
             else:
                 os.environ.pop(key, None)

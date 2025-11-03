@@ -130,6 +130,7 @@
     "mypy",
     "ondelete",
     "openrouter",
+    "pdfs",
     "poolclass",
     "psql",
     "pycache",

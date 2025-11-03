@@ -25,25 +25,36 @@ from pydantic import BaseModel, Field
 logger = logging.getLogger(__name__)
 
 
-class PDFInfo(BaseModel):
-    """Represents a single PDF document with metadata."""
-
-    title: str = Field(..., description="Title or description of the PDF")
-    url: str = Field(..., description="URL of the PDF file")
-    description: str = Field(default="", description="Any additional context about the PDF")
-    fiscal_year: int | None = Field(
-        default=None, description="Fiscal year if identifiable from title or context"
+class PDFLink(BaseModel):
+    title: str = Field(..., description="Title, description, or text associated with this PDF")
+    primary_url: str = Field(
+        ..., description="Main URL (could be article/document page or direct PDF)"
     )
-    document_type: str = Field(
-        default="unknown",
-        description="Type of financial document (annual_report, quarterly_report, etc.)",
+    download_url: str | None = Field(
+        None, description="Separate download URL if different from primary_url"
+    )
+    link_text: str | None = Field(
+        None,
+        description="Text of the link or button (e.g., 'Download PDF', '[PDF]', 'Annual Report')",
+    )
+    context: str | None = Field(
+        None, description="Surrounding text or context that helps identify the document"
+    )
+    year: int | None = Field(None, description="Year if mentioned in title, URL, or context")
+    document_type: str | None = Field(
+        None,
+        description="Type: annual_report, quarterly_report, presentation, academic_paper, or other",
+    )
+    pdf_indicator: str = Field(
+        ...,
+        description="How PDF was identified: direct_link, download_button, pdf_badge, viewer_page, or embedded",
     )
 
 
 class PDFCollection(BaseModel):
     """Collection of discovered PDF documents."""
 
-    pdfs: list[PDFInfo] = Field(..., description="List of PDFs found on the page")
+    pdfs: list[PDFLink] = Field(default=[], description="All PDFs and PDF-related links found")
 
 
 class DiscoveredPDF(BaseModel):
@@ -185,10 +196,10 @@ class ScrapingService:
             return await self._discover_with_css(ir_url)
 
         # Configure crawler for deep crawling
-        # Use "load" instead of "networkidle" - more reliable for sites with continuous network activity
+        # Use wait_until for page load states, wait_for is for CSS/JS selectors
         crawler_config = CrawlerRunConfig(
             cache_mode=CacheMode.BYPASS,  # Fresh data
-            wait_for="load",  # Wait for page load, not network idle (more reliable)
+            wait_until="domcontentloaded",  # Wait for DOM to be ready (faster than networkidle)
             wait_for_timeout=30000,  # 30 second timeout for wait condition
             page_timeout=90000,  # 90 second overall page timeout
             screenshot=False,
@@ -208,7 +219,7 @@ class ScrapingService:
             # Try with even more lenient settings
             crawler_config = CrawlerRunConfig(
                 cache_mode=CacheMode.BYPASS,
-                wait_for="domcontentloaded",  # Most lenient - just wait for DOM
+                wait_until="domcontentloaded",  # Most lenient - just wait for DOM
                 wait_for_timeout=15000,  # 15 seconds
                 page_timeout=60000,  # 60 seconds
                 screenshot=False,
@@ -222,6 +233,20 @@ class ScrapingService:
                     f"Failed to crawl main page even with lenient settings: {e2}",
                     exc_info=True,
                 )
+                # Try LLM extraction on partial HTML if we can get it via direct HTTP
+                # This allows LLM to work even when browser crawl fails
+                try:
+                    pdfs = await self._try_llm_extraction_on_http_content(ir_url)
+                    if pdfs:
+                        logger.info(
+                            f"Successfully extracted {len(pdfs)} PDFs using LLM on HTTP content"
+                        )
+                        return pdfs
+                except Exception as e3:
+                    logger.warning(
+                        f"LLM extraction on HTTP content also failed: {e3}, falling back to CSS extraction",
+                        exc_info=True,
+                    )
                 # Fallback to CSS extraction which might work with partial content
                 return await self._discover_with_css(ir_url)
 
@@ -249,7 +274,7 @@ class ScrapingService:
             # Fallback: crawl individually with more lenient settings
             crawler_config = CrawlerRunConfig(
                 cache_mode=CacheMode.BYPASS,
-                wait_for="domcontentloaded",
+                wait_until="domcontentloaded",
                 wait_for_timeout=15000,
                 page_timeout=60000,
                 screenshot=False,
@@ -361,10 +386,6 @@ class ScrapingService:
                 provider="openai/gpt-4o-mini",  # More cost-effective model
                 api_token=self.openrouter_api_key,
                 base_url="https://openrouter.ai/api/v1",
-                extra_headers={
-                    "HTTP-Referer": "https://financial-data-extractor.com",
-                    "X-Title": "Financial Data Extractor",
-                },
             )
 
             # Use Pydantic model's JSON schema directly
@@ -372,37 +393,109 @@ class ScrapingService:
                 llm_config=llm_config,
                 schema=PDFCollection.model_json_schema(),
                 extraction_type="schema",
-                instruction=(
-                    "Extract all PDF files mentioned or linked on this page. "
-                    "Look for links ending in .pdf or any references to PDF documents. "
-                    "Focus on annual reports, quarterly reports, and financial statements. "
-                    "For each PDF, extract the title, URL, and any description or context provided. "
-                    "Identify the fiscal year from document titles (e.g., 'Annual Report 2024' → fiscal_year: 2024). "
-                    "Classify documents by type: annual_report, quarterly_report, investor_presentation, or unknown. "
-                    "Resolve relative URLs to absolute URLs. "
-                    "Return empty array if no PDFs found."
-                ),
+                instruction="""
+                    Find ALL PDFs and PDF-related content on this page. Be thorough and check for multiple patterns.
+
+                    SEARCH PATTERNS - Check for ALL of these:
+
+                    1. DIRECT PDF LINKS:
+                    - URLs ending in .pdf
+                    - Links with 'pdf' in the path
+                    - Example: https://example.com/report.pdf
+
+                    2. SEPARATED DOWNLOAD LINKS:
+                    - Content title in one place, PDF link separate (often to the right or below)
+                    - Look for [PDF], [Download], [View PDF] badges/buttons near titles
+                    - The title link and PDF link are DIFFERENT URLs
+                    Example:
+                    * Title: "Annual Report 2023" → https://example.com/reports/2023
+                    * PDF Link: "[PDF]" → https://example.com/reports/2023/download.pdf
+                    Extract BOTH URLs: primary_url = title link, download_url = PDF link
+
+                    3. PDF VIEWER PAGES:
+                    - URLs containing /pdf/, /viewer/, /reader/ in the path
+                    - URLs with 'pdf' parameter: ?format=pdf, ?type=pdf
+                    - Example: https://onlinelibrary.wiley.com/doi/pdf/10.1155/2021/8812542
+                    - Example: https://example.com/viewer?doc=12345
+
+                    4. DOWNLOAD BUTTONS/LINKS:
+                    -Text containing: "Download", "PDF", "Get PDF", "View PDF", "Télécharger", "Herunterladen"
+                    - Often styled as buttons or prominent links
+                    - May have icons (download icon, PDF icon)
+
+                    5. EMBEDDED PDFs:
+                    - iframes, object, or embed tags pointing to PDFs
+                    - Data URLs containing PDF content
+
+                    6. JAVASCRIPT/DYNAMIC LINKS:
+                    - onclick handlers that download PDFs
+                    - data-url or data-href attributes with PDF paths
+                    - API endpoints like /api/download?id=123
+
+                    EXTRACTION RULES:
+
+                    A. For each PDF found, determine:
+                    - title: The name/description of the document
+                    - primary_url: Main link (article page, product page, etc.)
+                    - download_url: Direct PDF download link IF DIFFERENT from primary_url
+                    - link_text: Actual text of the link/button (e.g., "[PDF] aaai.org", "Download Annual Report", "Q4 2023 Results")
+                    - context: Nearby text that provides context (author, date, description)
+                    - pdf_indicator: How you found it (see categories above)
+
+                    B. CRITICAL - Handle separated links:
+                    If a document title and its PDF download link are in different places:
+                    - Set primary_url = the title's link (viewer/article page)
+                    - Set download_url = the separate PDF download link
+                    - Set link_text = the text of the PDF download link
+
+                    Example from an investor relations page:
+                    ```
+                    Annual Report 2023                    [PDF] [Excel]
+                    Quarterly Results Q4 2023            Download PDF
+                    ```
+                    Extract as:
+                    {
+                        "title": "Annual Report 2023",
+                        "primary_url": "https://example.com/investor/annual-report-2023",
+                        "download_url": "https://example.com/files/annual-report-2023.pdf",
+                        "link_text": "[PDF]",
+                        "pdf_indicator": "pdf_badge"
+                    }
+
+                    C. Year extraction:
+                    - Look in: title, URL, filename, surrounding text
+                    - Formats: 2023, 2022-2023, FY2023, Q4 2023
+                    - Extract the most recent/relevant year
+
+                    Return empty array if no PDFs found.
+                    """,
             )
 
             # Re-run crawler with LLM extraction on the same page
             # Use lenient wait conditions to avoid timeouts
             crawler_config = CrawlerRunConfig(
                 cache_mode=CacheMode.BYPASS,
-                wait_for="load",  # More reliable than networkidle
+                wait_until="domcontentloaded",  # More reliable than networkidle
                 wait_for_timeout=30000,  # 30 seconds
                 page_timeout=90000,  # 90 seconds
                 screenshot=False,
                 pdf=False,
                 verbose=False,
+                extraction_strategy=extraction_strategy,
             )
 
-            llm_result = await self._crawler.arun(
-                url=result.url, config=crawler_config, extraction_strategy=extraction_strategy
-            )
+            llm_result = await self._crawler.arun(url=result.url, config=crawler_config)
 
-            if llm_result.success and llm_result.extracted_content:
-                return self._parse_llm_results(llm_result, base_url)
-
+            # Check the whole llm_result content and log for debugging if extraction failed
+            if llm_result.success:
+                # Log info about llm_result for diagnostics of missing extracted_content
+                if not llm_result.extracted_content:
+                    logger.warning(
+                        f"LLM ran successfully but produced no extracted_content for {result.url}: {llm_result}",
+                        extra={"llm_result": repr(llm_result)},
+                    )
+                else:
+                    return self._parse_llm_results(llm_result, base_url)
         except Exception as e:
             logger.warning(
                 f"LLM extraction failed for page: {e}, falling back to simple regex extraction",
@@ -438,8 +531,26 @@ class ScrapingService:
             external_links = result.links.get("external", []) if hasattr(result, "links") else []
             all_links = internal_links + external_links
 
+            # Extract URLs from links (they might be strings or dicts with 'url' key)
+            def extract_url(link: str | dict) -> str:
+                """Extract URL from link, handling both string and dict formats."""
+                if isinstance(link, str):
+                    return link
+                elif isinstance(link, dict):
+                    # crawl4ai may return dict with 'url', 'href', or other keys
+                    return link.get("url") or link.get("href") or str(link)
+                else:
+                    return str(link)
+
+            # Convert all links to URL strings
+            all_link_urls = [extract_url(link) for link in all_links if extract_url(link)]
+
             # Filter for PDF links
-            pdf_links = [link for link in all_links if link.lower().endswith(".pdf")]
+            pdf_links = [
+                link_url
+                for link_url in all_link_urls
+                if link_url and link_url.lower().endswith(".pdf")
+            ]
 
             # Also search in the HTML content for PDF references
             html_content = result.html or ""
@@ -491,6 +602,78 @@ class ScrapingService:
 
         return pdfs
 
+    async def _try_llm_extraction_on_http_content(self, ir_url: str) -> list[DiscoveredPDF]:
+        """
+        Try LLM extraction using direct HTTP fetch when browser crawl fails.
+
+        This allows LLM extraction to work even when Crawl4AI browser automation fails.
+        We fetch the HTML directly via HTTP and pass it to LLM for extraction.
+
+        Args:
+            ir_url: Investor relations website URL.
+
+        Returns:
+            List of discovered PDF documents, or empty list if extraction fails.
+        """
+        if not self.openrouter_api_key:
+            return []
+
+        logger.info(f"Attempting LLM extraction on HTTP content for {ir_url}")
+
+        try:
+            # Fetch HTML content directly via HTTP
+            headers = {
+                "User-Agent": (
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/120.0.0.0 Safari/537.36"
+                ),
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            }
+
+            async with httpx.AsyncClient(
+                timeout=httpx.Timeout(30.0, connect=10.0),
+                headers=headers,
+                follow_redirects=True,
+            ) as client:
+                # Verify we can fetch the URL
+                response = await client.get(ir_url)
+                response.raise_for_status()
+
+            # If crawler is available, try with a minimal config - just fetch and extract
+            if self._crawler:
+                try:
+                    minimal_config = CrawlerRunConfig(
+                        cache_mode=CacheMode.BYPASS,
+                        wait_until=None,
+                        delay_before_return_html=0.5,
+                        page_timeout=30000,
+                        screenshot=False,
+                        pdf=False,
+                        verbose=False,
+                    )
+                    # Use HTTP mode if available, otherwise try minimal browser
+                    result = await self._crawler.arun(url=ir_url, config=minimal_config)
+                    if result and result.html:
+                        # Now run LLM extraction on this result
+                        pdfs = await self._extract_pdfs_with_llm_from_page(result, ir_url)
+                        return pdfs
+                except Exception as e:
+                    logger.warning(f"Failed to run minimal crawl for LLM: {e}")
+
+            # If all else fails, fall back to regex extraction with the HTTP content
+            logger.warning(
+                "Could not use LLM extraction on HTTP content, this is expected if browser is required"
+            )
+            return []
+
+        except Exception as e:
+            logger.error(
+                f"Failed to extract PDFs using LLM on HTTP content: {e}",
+                exc_info=True,
+            )
+            return []
+
     def _parse_llm_results(self, result: Any, base_url: str) -> list[DiscoveredPDF]:
         """
         Parse LLM extraction results into DiscoveredPDF objects.
@@ -520,24 +703,58 @@ class ScrapingService:
             else:
                 data = extracted_content
 
-            # Validate with Pydantic model
-            try:
-                pdf_collection = PDFCollection.model_validate(data)
-            except Exception as e:
-                logger.warning(
-                    f"Failed to validate LLM response with Pydantic model: {e}, trying direct parse",
-                    exc_info=True,
-                )
-                # Fallback to direct parsing if validation fails
-                pdf_collection = PDFCollection(pdfs=data.get("pdfs", []))
+            # Handle case where LLM returns array directly instead of {"pdfs": [...]}
+            if isinstance(data, list):
+                data = {"pdfs": data}
+            elif not isinstance(data, dict):
+                logger.warning(f"Unexpected LLM response format: {type(data)}")
+                return []
 
-            # Convert PDFInfo to DiscoveredPDF
-            for pdf_info in pdf_collection.pdfs:
-                if not pdf_info.url:
+            # Filter out extra fields that aren't in PDFInfo model (e.g., pdf_type, error)
+            # and ensure all required fields are present
+            cleaned_pdfs = []
+            for pdf_item in data.get("pdfs", []):
+                if not isinstance(pdf_item, dict):
                     continue
 
+                # Extract only fields that PDFInfo expects, with defaults
+                cleaned_pdf = {
+                    "title": pdf_item.get("title", ""),
+                    "primary_url": pdf_item.get("primary_url", ""),
+                    "download_url": pdf_item.get("download_url", ""),
+                    "link_text": pdf_item.get("link_text", ""),
+                    "context": pdf_item.get("context", ""),
+                    "year": pdf_item.get("year"),
+                    "document_type": pdf_item.get("document_type", "unknown"),
+                    "pdf_indicator": pdf_item.get("pdf_indicator", "unknown"),
+                }
+
+                cleaned_pdfs.append(cleaned_pdf)
+
+            # Validate with Pydantic model
+            try:
+                pdf_collection = PDFCollection(pdfs=cleaned_pdfs)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to validate LLM response with Pydantic model: {e}",
+                    exc_info=True,
+                )
+                # Last resort: try to parse individual items
+                pdf_collection = PDFCollection(pdfs=[])
+                for pdf_item in cleaned_pdfs:
+                    try:
+                        pdf_link = PDFLink(**pdf_item)
+                        pdf_collection.pdfs.append(pdf_link)
+                    except Exception as item_error:
+                        logger.debug(f"Skipping invalid PDF item: {item_error}")
+
+            # Convert PDFInfo to DiscoveredPDF
+            for pdf_link in pdf_collection.pdfs:
                 # Resolve relative URLs
-                url = pdf_info.url
+                url = pdf_link.download_url
+                if not url:
+                    url = pdf_link.primary_url
+
                 if not url.startswith(("http://", "https://")):
                     url = urljoin(base_url, url)
 
@@ -545,10 +762,10 @@ class ScrapingService:
                     DiscoveredPDF(
                         url=url,
                         filename=self._extract_filename(url),
-                        fiscal_year=pdf_info.fiscal_year,
-                        document_type=pdf_info.document_type,
-                        title=pdf_info.title,
-                        description=pdf_info.description,
+                        fiscal_year=pdf_link.year,
+                        document_type=pdf_link.document_type,
+                        title=pdf_link.title,
+                        description=pdf_link.document_type or "",
                         confidence=0.95,  # High confidence for LLM extraction
                     )
                 )
@@ -579,7 +796,7 @@ class ScrapingService:
         # Use lenient wait conditions to handle sites with continuous network activity
         crawler_config = CrawlerRunConfig(
             cache_mode=CacheMode.BYPASS,  # Fresh data
-            wait_for="load",  # Wait for page load instead of networkidle
+            wait_until="domcontentloaded",  # Wait for DOM ready instead of networkidle
             wait_for_timeout=30000,  # 30 second timeout for wait condition
             page_timeout=90000,  # 90 second overall timeout
             screenshot=False,
@@ -593,13 +810,14 @@ class ScrapingService:
             result = await self._crawler.arun(url=ir_url, config=crawler_config)
         except Exception as e:
             logger.warning(
-                f"Failed with 'load' condition: {e}, trying 'domcontentloaded'",
+                f"Failed with 'domcontentloaded' condition: {e}, trying with no wait condition",
                 exc_info=True,
             )
-            # Try with even more lenient settings
+            # Try with even more lenient settings - no wait, just delay
             crawler_config = CrawlerRunConfig(
                 cache_mode=CacheMode.BYPASS,
-                wait_for="domcontentloaded",  # Most lenient - just DOM ready
+                wait_until=None,  # No wait condition, use delay instead
+                delay_before_return_html=3.0,  # Wait 3 seconds before capture
                 wait_for_timeout=15000,  # 15 seconds
                 page_timeout=60000,  # 60 seconds
                 screenshot=False,
