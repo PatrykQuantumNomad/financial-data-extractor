@@ -14,24 +14,32 @@ This page contains video demonstrations of the Financial Data Extractor applicat
 This video provides an overview of the Financial Data Extractor platform, including the main features and user interface.
 
 <div class="video-container">
-    <video controls preload="metadata" playsinline webkit-playsinline>
-        <source src="{{ '/assets/video/intro.mp4' | relative_url }}" type="video/mp4">
-        <p>Your browser does not support the video tag. <a href="{{ '/assets/video/intro.mp4' | relative_url }}">Download the video</a> instead.</p>
-    </video>
+    <iframe
+        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
+        src="https://youtu.be/wvn0miIfClo"
+        frameborder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen>
+    </iframe>
 </div>
 
-<p class="text-small text-grey-dk-000 mb-0"><em>Note: The introduction video is large (371MB). Please allow time for buffering. If playback issues occur, try refreshing the page or downloading the video directly.</em></p>
+<p class="text-small text-grey-dk-000 mb-0"><em>Watch on <a href="https://youtu.be/wvn0miIfClo" target="_blank" rel="noopener noreferrer">YouTube</a> if the embedded player doesn't load.</em></p>
 
 ## Results Video
 
 This video showcases the results and output of the financial data extraction process, demonstrating the compiled financial statements and data visualization features.
 
 <div class="video-container">
-    <video controls preload="metadata" playsinline webkit-playsinline>
-        <source src="{{ '/assets/video/results.mp4' | relative_url }}" type="video/mp4">
-        <p>Your browser does not support the video tag. <a href="{{ '/assets/video/results.mp4' | relative_url }}">Download the video</a> instead.</p>
-    </video>
+    <iframe
+        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
+        src="https://www.youtube.com/embed/aoj4GRx-BPw"
+        frameborder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen>
+    </iframe>
 </div>
+
+<p class="text-small text-grey-dk-000 mb-0"><em>Watch on <a href="https://youtu.be/aoj4GRx-BPw" target="_blank" rel="noopener noreferrer">YouTube</a> if the embedded player doesn't load.</em></p>
 
 ## Video Features
 
@@ -51,44 +59,12 @@ This video showcases the results and output of the financial data extraction pro
 - Data normalization features
 - Interactive data exploration
 
-## Troubleshooting Video Playback
+## Video Links
 
-If you're experiencing issues playing the videos:
+If the embedded players don't load or you prefer to watch directly on YouTube:
 
-### Common Issues
-
-1. **Large File Size**: The introduction video is 371MB. Your browser may need time to buffer before playback starts.
-
-   - Wait a few moments after clicking play
-   - Check your internet connection speed
-   - Try right-clicking the video and selecting "Save video as..." to download
-
-2. **Browser Compatibility**: Ensure you're using a modern browser with HTML5 video support:
-
-   - Chrome/Edge (Chromium) - Recommended
-   - Firefox
-   - Safari
-   - Opera
-
-3. **Local Development Server**: If viewing locally with Jekyll:
-
-   - Ensure the Jekyll server is running: `bundle exec jekyll serve`
-   - Videos should be accessible at `/financial-data-extractor/assets/video/`
-   - Try hard refresh (Ctrl+Shift+R or Cmd+Shift+R)
-
-4. **Browser Console Errors**: Open browser developer tools (F12) and check the Console tab for any error messages.
-
-5. **Alternative**: If videos won't play, you can download them directly:
-   - [Download Introduction Video]({{ '/assets/video/intro.mp4' | relative_url }})
-   - [Download Results Video]({{ '/assets/video/results.mp4' | relative_url }})
-
-### GitHub Pages Deployment
-
-When deployed to GitHub Pages, videos should work automatically. If issues persist:
-
-- Verify the video files are committed to the repository
-- Check that the file paths are correct
-- Ensure GitHub Pages has processed the site (may take a few minutes after push)
+- **[Introduction Video](https://youtu.be/wvn0miIfClo)** - Platform overview and features
+- **[Results Video](https://youtu.be/aoj4GRx-BPw)** - Financial statements compilation demo
 
 ## Related Documentation
 
