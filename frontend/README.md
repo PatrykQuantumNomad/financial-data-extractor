@@ -24,8 +24,101 @@ Next.js 15 frontend application for the Financial Data Extractor platform.
 
 ### Prerequisites
 
-- Node.js 18+
-- npm, yarn, or pnpm
+- **Node.js**: `>=22.12.0`
+- npm >=10.0.0, yarn, or pnpm
+
+#### Node.js Version Requirements
+
+**To check your Node.js version:**
+
+```bash
+node --version
+```
+
+**To upgrade Node.js:**
+
+If using [nvm](https://github.com/nvm-sh/nvm):
+
+```bash
+# Install Node.js 22 LTS (recommended)
+nvm install 22
+nvm use 22
+```
+
+Or download from [nodejs.org](https://nodejs.org/).
+
+#### Automatic Node.js Version Switching with nvm
+
+This project includes an `.nvmrc` file that specifies the Node.js version (22 LTS).
+
+**To automatically switch Node.js version when entering the project:**
+
+1. Install nvm if you haven't already: [nvm installation guide](https://github.com/nvm-sh/nvm#installing-and-updating)
+
+2. Add this to your shell profile (`.zshrc`, `.bashrc`, or `.bash_profile`):
+
+   ```bash
+   # Auto-switch Node.js version when entering directories with .nvmrc
+   autoload -U add-zsh-hook
+   load-nvmrc() {
+     local node_version="$(nvm version)"
+     local nvmrc_path="$(nvm_find_nvmrc)"
+
+     if [ -n "$nvmrc_path" ]; then
+       local nvmrc_node_version=$(nvm version "$(cat "${nvmrc_path}")")
+
+       if [ "$nvmrc_node_version" = "N/A" ]; then
+         nvm install
+       elif [ "$nvmrc_node_version" != "$node_version" ]; then
+         nvm use
+       fi
+     elif [ "$node_version" != "$(nvm version default)" ]; then
+       echo "Reverting to nvm default version"
+       nvm use default
+     fi
+   }
+   add-zsh-hook chpwd load-nvmrc
+   load-nvmrc
+   ```
+
+   For bash, use:
+
+   ```bash
+   # Auto-switch Node.js version when entering directories with .nvmrc
+   autoload_nvm() {
+     local node_version="$(nvm version)"
+     local nvmrc_path="$(nvm_find_nvmrc)"
+
+     if [ -n "$nvmrc_path" ]; then
+       local nvmrc_node_version=$(nvm version "$(cat "${nvmrc_path}")")
+
+       if [ "$nvmrc_node_version" = "N/A" ]; then
+         nvm install
+       elif [ "$nvmrc_node_version" != "$node_version" ]; then
+         nvm use
+       fi
+     elif [ "$node_version" != "$(nvm version default)" ]; then
+       echo "Reverting to nvm default version"
+       nvm use default
+     fi
+   }
+   cd() { builtin cd "$@"; autoload_nvm; }
+   autoload_nvm
+   ```
+
+3. **Manual switching** (if auto-switch is not set up):
+
+   ```bash
+   cd frontend
+   nvm use  # Automatically uses version from .nvmrc
+   ```
+
+4. **First time setup** (if Node.js 22 is not installed):
+   ```bash
+   cd frontend
+   nvm install  # Installs version from .nvmrc
+   nvm use      # Switches to that version
+   ```
 
 ### Installation
 

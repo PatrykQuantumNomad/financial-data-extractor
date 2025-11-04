@@ -24,12 +24,12 @@ The project uses a comprehensive testing strategy across both backend and fronte
 
 For detailed backend testing documentation, see **[Backend Testing](backend.html)**.
 
-### Frontend Testing (Vitest)
+### Frontend Testing (Vitest + Playwright)
 
-- UI components
-- Layout components
-- User interactions
-- Component rendering
+- **Unit Tests**: UI components, hooks, and utilities (Vitest)
+- **Integration Tests**: Component + hooks integration (Vitest)
+- **E2E Tests**: Complete user workflows (Playwright)
+- **Coverage**: 100+ tests across all testing layers
 
 For detailed frontend testing documentation, see **[Frontend Testing](frontend.html)**.
 
@@ -73,61 +73,6 @@ def test_something():
 - Test boundary values and validation rules
 - Include both positive and negative test cases
 
-## Current Test Coverage
-
-### Backend Tests
-
-**Status:** ✅ **128 tests total** (124 unit + 4 integration tests) covering API endpoints, middleware, models, schemas, services, utils, and full workflows
-
-**Unit Tests (124 tests):**
-- **Companies API** - 100% coverage (17 tests)
-- **Documents API** - 100% coverage (17 tests)
-- **Extractions API** - 100% coverage (15 tests)
-- **Error Handler** - 100% coverage (13 tests)
-- **Middleware** - 100% coverage (9 tests)
-- **DB Models** - 100% coverage (12 tests)
-- **Schemas** - 100% coverage (18 tests)
-- **Services** - 89% coverage (13 tests)
-- **Utils** - 81-100% coverage (11 tests)
-
-**Integration Tests (4 tests):**
-- **Companies CRUD** - Complete workflow testing with real PostgreSQL database using testcontainers
-  - Create, Read, Update, Delete operations
-  - List with pagination
-  - Get by ticker symbol
-  - Multiple companies creation
-
-**Architecture Highlights:**
-- **Layered Exception Handling**: Database → Service → API exception translation
-- **Repository Pattern**: Clean separation of database operations
-- **Service Layer**: Business logic with proper exception handling
-- **Testcontainers**: Real PostgreSQL database for integration testing
-
-For detailed backend testing information, see **[Backend Testing](backend.html)**.
-
-### Frontend Tests
-
-**Status:** ✅ **100+ tests** covering UI components, hooks, API clients, and integration workflows
-
-**Unit Tests:**
-- **UI Components** - 65 tests (100% coverage for Button, Badge, Card, Table, Tabs, Navbar)
-- **Dashboard Components** - Company listing, loading, error states
-- **Statement Components** - Error handling, type navigation, loading states
-- **API Clients** - Companies, Documents, Statements, Tasks APIs
-- **React Query Hooks** - useCompanies, useDocuments, useStatements, useTasks
-- **Utilities** - Formatters, query utilities
-
-**Integration Tests:**
-- **Component + Hooks** - Tests components using React Query hooks (CompanyList, StatementPageContent)
-- **API + Hooks** - Tests hooks with mocked API clients (all hook scenarios)
-
-**Key Features:**
-- **React Query Integration**: Comprehensive testing of data fetching and caching
-- **Error Handling**: Tests for loading, error, and empty states
-- **Mocking Strategy**: Clean API client mocking for isolated tests
-
-For detailed frontend testing information, see **[Frontend Testing](frontend.html)**.
-
 ## Running Tests
 
 ### Backend Tests (pytest)
@@ -147,12 +92,12 @@ make test-cov
 
 For more backend testing commands, see **[Backend Testing](backend.html)**.
 
-### Frontend Tests (Vitest)
+### Frontend Tests (Vitest + Playwright)
 
 ```bash
 cd frontend
 
-# Run tests
+# Run unit and integration tests
 npm test
 
 # Run with watch mode
@@ -160,6 +105,15 @@ npm run test:watch
 
 # Run with coverage
 npm run test:coverage
+
+# Run E2E tests
+npm run test:e2e
+
+# Run E2E tests with UI
+npm run test:e2e:ui
+
+# Debug E2E tests
+npm run test:e2e:debug
 ```
 
 For more frontend testing commands, see **[Frontend Testing](frontend.html)**.
@@ -188,11 +142,17 @@ For detailed backend test structure, see **[Backend Testing](backend.html)**.
 
 ```text
 frontend/
-├── src/
-│   ├── components/
-│   │   └── __tests__/           # Component tests
-│   └── lib/
-│       └── __tests__/           # Utility tests
+├── tests/
+│   ├── components/              # Unit tests (Vitest)
+│   ├── integration/             # Integration tests (Vitest)
+│   ├── e2e/                     # E2E tests (Playwright)
+│   │   ├── home.spec.ts
+│   │   ├── navigation.spec.ts
+│   │   ├── error-pages.spec.ts
+│   │   └── ...
+│   ├── vitest.config.mjs
+│   └── vitest.setup.ts
+└── playwright.config.ts         # Playwright configuration
 ```
 
 For detailed frontend test structure, see **[Frontend Testing](frontend.html)**.
@@ -222,9 +182,9 @@ For detailed frontend test structure, see **[Frontend Testing](frontend.html)**.
 
 Our testing strategy continues to evolve:
 
-1. ✅ **Unit tests** - Comprehensive backend coverage (70 tests)
-2. 🔄 **Integration tests** - Database and external services (in progress)
-3. ⏳ **End-to-end tests** - Complete workflows
+1. ✅ **Unit tests** - Comprehensive backend and frontend coverage
+2. ✅ **Integration tests** - Database workflows and component integration
+3. ✅ **End-to-end tests** - Complete user workflows with Playwright
 4. ⏳ **Performance tests** - Load and stress testing
 5. ⏳ **Security tests** - Vulnerability scanning
 

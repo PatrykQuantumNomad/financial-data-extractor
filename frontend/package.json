@@ -11,7 +11,12 @@
     "test": "vitest -c tests/vitest.config.mjs",
     "test:ui": "vitest -c tests/vitest.config.mjs --ui",
     "test:coverage": "vitest run -c tests/vitest.config.mjs --coverage",
-    "test:watch": "vitest -c tests/vitest.config.mjs watch"
+    "test:watch": "vitest -c tests/vitest.config.mjs watch",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "1.1.15",
@@ -37,6 +42,7 @@
   "devDependencies": {
     "@eslint/js": "^9.39.0",
     "@next/eslint-plugin-next": "^16.0.1",
+    "@playwright/test": "^1.56.1",
     "@tailwindcss/postcss": "4.1.6",
     "@tanstack/eslint-plugin-query": "^5.91.2",
     "@testing-library/jest-dom": "^6.9.1",

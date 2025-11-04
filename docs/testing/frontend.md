@@ -16,13 +16,16 @@ The frontend testing setup provides:
 
 - **Fast Unit Tests**: Vitest's blazing-fast test execution with minimal configuration
 - **Component Testing**: React Testing Library for user-centric component testing
+- **Integration Testing**: Component + hooks and API + hooks integration tests
+- **End-to-End Testing**: Playwright for complete user workflow testing
 - **100% Coverage**: Target coverage for UI components and utilities
 - **Type Safety**: Full TypeScript support with type checking in tests
-- **Future-Ready**: Prepared for integration and E2E testing
 
 ## Technology Stack
 
 ### Testing Framework
+
+#### Unit & Integration Testing
 
 - **Vitest** - Fast, Vite-native unit test framework
 - **React Testing Library** - Component testing utilities
@@ -31,6 +34,12 @@ The frontend testing setup provides:
 - **jsdom** - DOM environment for running tests in Node.js
 - **@vitest/ui** - Interactive test UI for better debugging
 - **@vitest/coverage-v8** - Code coverage reporting
+
+#### End-to-End Testing
+
+- **Playwright** - Modern browser automation framework
+- **TypeScript** - Type-safe E2E test authoring
+- **Auto-Server Management** - Automatic FastAPI and Next.js startup
 
 ## Project Structure
 
@@ -722,22 +731,546 @@ tests/integration/
 └── mocks/                   # Shared mock data
 ```
 
-## Future Work
+## End-to-End (E2E) Testing with Playwright
 
-### Additional Integration Tests
+The frontend uses **Playwright** for end-to-end testing, providing comprehensive coverage of complete user workflows across the entire application stack.
 
-- **Form Submissions**: End-to-end form workflows with React Query mutations
-- **Cache Invalidation**: Testing cache updates after mutations
-- **Optimistic Updates**: Testing optimistic UI updates
+### Overview
 
-### E2E Testing
+E2E tests verify the complete user experience, including:
 
-Future E2E testing will use:
+- **Page Navigation**: Routing and navigation between pages
+- **Component Rendering**: Full page rendering with real data
+- **API Integration**: Real backend API calls and responses
+- **User Interactions**: Clicks, form submissions, and keyboard navigation
+- **Error Handling**: 404 pages, error states, and edge cases
+- **Cross-Component Workflows**: Complete user journeys
 
-- **Playwright** or **Cypress** for browser automation
-- **User Journeys**: Complete workflows from page load to data submission
-- **Cross-Browser**: Testing on Chrome, Firefox, Safari
-- **Visual Regression**: Snapshot testing for UI changes
+### Technology Stack
+
+- **Playwright** - Modern browser automation framework
+- **TypeScript** - Type-safe test authoring
+- **Auto-Server Management** - Automatic FastAPI and Next.js server startup
+
+### Project Structure
+
+E2E tests are organized in the `tests/e2e/` directory:
+
+```text
+frontend/
+├── tests/
+│   ├── e2e/                      # End-to-end tests
+│   │   ├── home.spec.ts          # Home page tests
+│   │   ├── navigation.spec.ts    # Navigation flows
+│   │   ├── error-pages.spec.ts   # Error page tests
+│   │   ├── company-statements.spec.ts  # Statement pages
+│   │   ├── extraction.spec.ts    # Extraction page
+│   │   ├── README.md             # E2E testing guide
+│   │   └── ...
+│   └── integration/              # Integration tests (Vitest)
+└── playwright.config.ts          # Playwright configuration
+```
+
+### Configuration
+
+The Playwright configuration (`playwright.config.ts`) includes:
+
+```typescript
+import { defineConfig, devices } from "@playwright/test";
+
+export default defineConfig({
+  testDir: "./tests/e2e",
+
+  // Parallel test execution
+  fullyParallel: true,
+
+  // CI-specific settings
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+
+  // Reporters
+  reporter: [
+    ["html"],
+    ["list"],
+    ["json", { outputFile: "test-results/results.json" }],
+  ],
+
+  // Shared settings
+  use: {
+    baseURL: "http://localhost:3000",
+    trace: "on-first-retry",
+    screenshot: "only-on-failure",
+    video: "retain-on-failure",
+    actionTimeout: 10000,
+  },
+
+  // Browser projects
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+    },
+  ],
+
+  // Web servers - automatically starts backend and frontend
+  webServer: [
+    // FastAPI backend (port 3030)
+    {
+      command: "cd ../backend && uv run python run.py",
+      url: "http://localhost:3030/healthcheck",
+      reuseExistingServer: !process.env.CI,
+      stdout: "pipe",
+      stderr: "pipe",
+      timeout: 120 * 1000,
+    },
+    // Next.js frontend (port 3000)
+    {
+      command: "npm run dev",
+      url: "http://localhost:3000",
+      reuseExistingServer: !process.env.CI,
+      stdout: "ignore",
+      stderr: "pipe",
+      timeout: 120 * 1000,
+    },
+  ],
+});
+```
+
+**Key Features:**
+
+- **Automatic Server Management**: Starts FastAPI backend and Next.js frontend before tests
+- **Health Checks**: Waits for both servers to be ready before running tests
+- **Reuse Existing Servers**: Reuses running servers in development (disabled in CI)
+- **Artifact Collection**: Screenshots, videos, and traces on test failures
+- **CI Optimization**: Adjusts retries, workers, and server management for CI environments
+
+### Running E2E Tests
+
+#### NPM Scripts
+
+```bash
+# Run all E2E tests
+npm run test:e2e
+
+# Run tests in interactive UI mode
+npm run test:e2e:ui
+
+# Run tests with visible browser (headed mode)
+npm run test:e2e:headed
+
+# Debug tests (step through with inspector)
+npm run test:e2e:debug
+
+# View test report
+npm run test:e2e:report
+```
+
+#### Command-Line Options
+
+```bash
+# Run specific test file
+npx playwright test tests/e2e/home.spec.ts
+
+# Run tests matching a pattern
+npx playwright test --grep "navigation"
+
+# Run in headed mode
+npx playwright test --headed
+
+# Run on specific browser
+npx playwright test --project=chromium
+
+# Run with trace
+npx playwright test --trace on
+```
+
+### Prerequisites
+
+Before running E2E tests, ensure:
+
+1. **Backend Dependencies**: PostgreSQL and Redis must be running
+
+   - The FastAPI backend requires these services to start
+   - Tests will fail if the backend cannot connect
+
+2. **Node.js Version**: Node.js 22+ (see `.nvmrc` file)
+
+3. **Browser Installation**: Playwright browsers installed
+   ```bash
+   npx playwright install chromium
+   ```
+
+### Test Structure
+
+E2E tests follow Playwright's best practices:
+
+#### Basic Test Example
+
+```typescript
+import { test, expect } from "@playwright/test";
+
+test.describe("Home Page", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/");
+  });
+
+  test("should display the home page with correct title", async ({ page }) => {
+    await expect(page).toHaveTitle(/Financial Data Extractor/i);
+  });
+
+  test("should render the navbar with navigation links", async ({ page }) => {
+    const navbar = page.getByRole("navigation");
+    await expect(navbar).toBeVisible();
+
+    await expect(page.getByRole("link", { name: /companies/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /extraction/i })).toBeVisible();
+  });
+});
+```
+
+#### Testing Navigation
+
+```typescript
+test("should navigate to extraction page from navbar", async ({ page }) => {
+  await page.goto("/");
+
+  const extractionLink = page.getByRole("link", { name: /extraction/i });
+  await extractionLink.click();
+
+  await expect(page).toHaveURL(/\/extraction/);
+  await expect(
+    page.getByRole("heading", { name: /data extraction/i })
+  ).toBeVisible();
+});
+```
+
+#### Testing with API Data
+
+```typescript
+test("should display companies from API", async ({ page }) => {
+  await page.goto("/");
+
+  // Wait for API call to complete
+  await page.waitForLoadState("networkidle");
+
+  // Check if companies are displayed (may be empty)
+  const companiesCard = page.locator('[data-testid="company-card"]').first();
+  const hasCompanies = await companiesCard.isVisible().catch(() => false);
+
+  if (hasCompanies) {
+    await expect(companiesCard).toBeVisible();
+  } else {
+    // Handle empty state gracefully
+    const emptyMessage = page.getByText(/no companies found/i);
+    await expect(emptyMessage).toBeVisible();
+  }
+});
+```
+
+#### Testing Error Pages
+
+```typescript
+test("should display 404 page for invalid company ID", async ({ page }) => {
+  await page.goto("/companies/99999/statements/income_statement");
+
+  await expect(page.getByText(/404/i)).toBeVisible();
+  await expect(page.getByText(/page not found/i)).toBeVisible();
+
+  // Test navigation back to home
+  const homeButton = page.getByRole("link", { name: /back to home/i });
+  await homeButton.click();
+  await expect(page).toHaveURL("/");
+});
+```
+
+### Current Test Coverage
+
+**Status:** ✅ **E2E test suite** covering core user workflows
+
+#### Home Page Tests (`home.spec.ts`)
+
+- Page title and metadata
+- Navbar rendering and navigation
+- Company list display
+- Navigation to extraction page
+- Logo/home link functionality
+
+#### Navigation Tests (`navigation.spec.ts`)
+
+- Navigation between main pages
+- Consistent navbar across pages
+- URL routing and page transitions
+
+#### Error Page Tests (`error-pages.spec.ts`)
+
+- 404 page for invalid routes
+- 404 page for non-existent companies
+- Navigation back from error pages
+- Invalid statement type handling
+
+#### Company Statement Tests (`company-statements.spec.ts`)
+
+- Navigation to statement pages from company list
+- Loading states for statement pages
+- Error handling for non-existent companies
+- Support for different statement types (income, balance, cash flow)
+
+#### Extraction Page Tests (`extraction.spec.ts`)
+
+- Extraction page rendering
+- Company selection functionality
+- Empty state handling
+- Navigation flows
+
+### Best Practices
+
+#### 1. Use Semantic Selectors
+
+```typescript
+// ✅ Good - accessible and user-focused
+page.getByRole("button", { name: /submit/i });
+page.getByLabel("Email address");
+page.getByText("Welcome");
+
+// ⚠️ OK - test ID when needed
+page.getByTestId("submit-button");
+
+// ❌ Bad - fragile CSS selectors
+page.locator(".btn-primary");
+```
+
+#### 2. Wait for Network Idle
+
+```typescript
+// ✅ Good - wait for API calls to complete
+await page.goto("/");
+await page.waitForLoadState("networkidle");
+
+// ❌ Bad - assume instant loading
+await page.goto("/");
+// API might not be ready yet
+```
+
+#### 3. Handle Conditional Content
+
+```typescript
+// ✅ Good - gracefully handle empty states
+const viewStatementsButton = page
+  .getByRole("button", { name: /view statements/i })
+  .first();
+const hasCompanies = await viewStatementsButton.isVisible().catch(() => false);
+
+if (hasCompanies) {
+  await viewStatementsButton.click();
+  // Test navigation...
+} else {
+  // Skip test or test empty state
+  test.info().annotations.push({
+    type: "skip",
+    description: "No companies found in database",
+  });
+}
+```
+
+#### 4. Use Descriptive Test Names
+
+```typescript
+// ✅ Good
+test("should navigate to extraction page from navbar when clicking extraction link", async ({
+  page,
+}) => {
+  // ...
+});
+
+// ❌ Bad
+test("navigation test", async ({ page }) => {
+  // ...
+});
+```
+
+#### 5. Test User Journeys
+
+```typescript
+// ✅ Good - complete user workflow
+test("should complete company statement viewing workflow", async ({ page }) => {
+  // 1. Navigate to home
+  await page.goto("/");
+
+  // 2. Find and click company
+  await page
+    .getByRole("button", { name: /view statements/i })
+    .first()
+    .click();
+
+  // 3. Verify statement page loaded
+  await expect(page).toHaveURL(
+    /\/companies\/\d+\/statements\/income_statement/
+  );
+
+  // 4. Verify page content
+  await expect(page.locator("main")).toBeVisible();
+});
+```
+
+### Debugging E2E Tests
+
+#### Using Playwright UI
+
+```bash
+npm run test:e2e:ui
+```
+
+Features:
+
+- **Live Test Execution**: See tests run in real-time
+- **Step Through**: Pause and inspect at each step
+- **Time Travel**: Replay test execution
+- **Trace Viewer**: View detailed execution traces
+- **Screenshots/Videos**: Visual debugging of failures
+
+#### Using Debug Mode
+
+```bash
+npm run test:e2e:debug
+```
+
+Opens Playwright Inspector to step through tests:
+
+- **Breakpoints**: Pause at specific actions
+- **DOM Inspection**: Inspect page state at any point
+- **Console**: Access browser console
+- **Network**: Monitor API requests
+
+#### Viewing Test Reports
+
+```bash
+npm run test:e2e:report
+```
+
+Opens HTML report with:
+
+- **Test Results**: Pass/fail status for all tests
+- **Screenshots**: Visual evidence of failures
+- **Videos**: Full test execution videos
+- **Traces**: Detailed execution traces with timeline
+- **Console Logs**: Browser console output
+
+#### Common Debugging Commands
+
+```typescript
+// Print page content
+await page.content();
+
+// Take screenshot
+await page.screenshot({ path: "debug.png" });
+
+// Wait for specific element
+await page.waitForSelector('[data-testid="element"]');
+
+// Log network requests
+page.on("request", (request) => console.log("Request:", request.url()));
+page.on("response", (response) =>
+  console.log("Response:", response.url(), response.status())
+);
+
+// Pause execution (opens inspector)
+await page.pause();
+```
+
+### CI/CD Integration
+
+E2E tests are configured for CI environments:
+
+```yaml
+# Example GitHub Actions workflow
+- name: Install Playwright browsers
+  run: npx playwright install --with-deps chromium
+
+- name: Run E2E tests
+  run: npm run test:e2e
+  env:
+    CI: true
+
+- name: Upload test results
+  if: always()
+  uses: actions/upload-artifact@v3
+  with:
+    name: playwright-report
+    path: playwright-report/
+    retention-days: 30
+```
+
+**CI Optimizations:**
+
+- **Retries**: 2 retries on failure
+- **Single Worker**: Sequential execution for stability
+- **Artifact Collection**: Screenshots, videos, and traces uploaded
+- **Browser Installation**: Automatic with dependencies
+
+### Troubleshooting
+
+#### Tests Fail Because Backend Not Available
+
+**Solution:** Ensure PostgreSQL and Redis are running before tests:
+
+```bash
+# Check services
+docker ps  # If using Docker
+# Or check locally running services
+
+# Start services if needed
+docker-compose up -d postgres redis
+```
+
+#### Tests Are Flaky
+
+**Solutions:**
+
+- Add explicit waits for dynamic content:
+
+  ```typescript
+  await page.waitForLoadState("networkidle");
+  await page.waitForSelector('[data-testid="element"]');
+  ```
+
+- Increase timeouts for slow operations:
+
+  ```typescript
+  await expect(element).toBeVisible({ timeout: 10000 });
+  ```
+
+- Use `waitFor` instead of immediate checks:
+  ```typescript
+  await page.waitForResponse((response) =>
+    response.url().includes("/api/v1/companies")
+  );
+  ```
+
+#### Browser Not Found
+
+**Solution:**
+
+```bash
+npx playwright install chromium
+```
+
+#### Server Startup Timeout
+
+**Solutions:**
+
+- Increase timeout in `playwright.config.ts`:
+
+  ```typescript
+  webServer: [
+    {
+      timeout: 180 * 1000, // 3 minutes
+    },
+  ];
+  ```
+
+- Check backend logs for startup issues
+- Verify database connections are working
 
 ## Related Documentation
 
@@ -746,8 +1279,18 @@ Future E2E testing will use:
 
 ## Resources
 
+### Unit & Integration Testing
+
 - [Vitest Documentation](https://vitest.dev){:target="\_blank"}
 - [React Testing Library](https://testing-library.com/react){:target="\_blank"}
 - [Testing Library Queries](https://testing-library.com/docs/queries/about/){:target="\_blank"}
 - [Common Mistakes](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library){:target="\_blank"}
 - [Vitest UI Documentation](https://vitest.dev/guide/ui){:target="\_blank"}
+
+### End-to-End Testing
+
+- [Playwright Documentation](https://playwright.dev){:target="\_blank"}
+- [Playwright Best Practices](https://playwright.dev/docs/best-practices){:target="\_blank"}
+- [Playwright Selectors](https://playwright.dev/docs/selectors){:target="\_blank"}
+- [Playwright Debugging](https://playwright.dev/docs/debug){:target="\_blank"}
+- [Playwright CI/CD Guide](https://playwright.dev/docs/ci){:target="\_blank"}
