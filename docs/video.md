@@ -16,7 +16,7 @@ This video provides an overview of the Financial Data Extractor platform, includ
 <div class="video-container">
     <iframe
         style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
-        src="https://youtu.be/wvn0miIfClo"
+        src="https://www.youtube.com/embed/wvn0miIfClo?si=wAKXHBknLdz1jqSI"
         frameborder="0"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowfullscreen>
