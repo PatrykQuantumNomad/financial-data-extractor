@@ -52,6 +52,81 @@ Tasks are organized into dedicated queues for better resource management:
 | `orchestration` | End-to-end workflows             | 10 minutes - 2 hours | Low (1)      |
 | `default`       | General tasks                    | Varies               | Medium (2-3) |
 
+## Task Processing Workflow
+
+The following diagram illustrates how tasks flow through the system, from user action through worker execution to final data storage:
+
+```mermaid
+flowchart LR
+    subgraph "User Action"
+        User[User/API Request]
+    end
+
+    subgraph "API Layer"
+        API[FastAPI Endpoint]
+    end
+
+    subgraph "Message Broker"
+        Queue[Redis Queue<br/>scraping/extraction/compilation]
+    end
+
+    subgraph "Worker Pool"
+        Worker1[Worker 1: Scraping]
+        Worker2[Worker 2: Extraction]
+        Worker3[Worker 3: Compilation]
+    end
+
+    subgraph "External Services"
+        IR[Investor Relations<br/>Website]
+        LLM[OpenRouter<br/>LLM API]
+    end
+
+    subgraph "Storage"
+        MinIO[MinIO<br/>Object Storage]
+        DB[(PostgreSQL<br/>Database)]
+    end
+
+    User -->|HTTP Request| API
+    API -->|Queue Task| Queue
+    Queue -->|Process| Worker1
+    Queue -->|Process| Worker2
+    Queue -->|Process| Worker3
+
+    Worker1 -->|Scrape| IR
+    Worker1 -->|Store PDFs| MinIO
+    Worker1 -->|Save Metadata| DB
+    Worker1 -.->|Trigger| Worker2
+
+    Worker2 -->|Read PDFs| MinIO
+    Worker2 -->|Extract Data| LLM
+    Worker2 -->|Store Extractions| DB
+    Worker2 -.->|Trigger| Worker3
+
+    Worker3 -->|Read Extractions| DB
+    Worker3 -->|Compile Statements| DB
+    Worker3 -->|Save Results| DB
+
+    style User fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    style API fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style Queue fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style Worker1 fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    style Worker2 fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    style Worker3 fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    style IR fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    style LLM fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    style MinIO fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style DB fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+```
+
+**Key Workflow Points:**
+
+1. **User Action**: User or API client triggers an extraction task
+2. **Task Queuing**: FastAPI endpoint queues the task to Redis
+3. **Worker Processing**: Specialized workers process tasks from their respective queues
+4. **Task Chaining**: Workers can trigger subsequent tasks (dashed arrows)
+5. **Data Storage**: Results are stored in MinIO (PDFs) and PostgreSQL (metadata, extractions, compiled statements)
+6. **External Calls**: Workers interact with external services (websites, LLM APIs)
+
 ## Available Tasks
 
 ### Company-Level Tasks

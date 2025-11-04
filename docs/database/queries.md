@@ -426,6 +426,6 @@ ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
 
 ## Related Documentation
 
-- **[Infrastructure Development Setup](../infrastructure/development.md)** - Setting up database access
-- **[Database Schema](schema.md)** - Understanding table structures
-- **[Database Migrations](migrations.md)** - Migration commands
+- **[Infrastructure Development Setup](../infrastructure/development.html)** - Setting up database access
+- **[Database Schema](schema.html)** - Understanding table structures
+- **[Database Migrations](migrations.html)** - Migration commands

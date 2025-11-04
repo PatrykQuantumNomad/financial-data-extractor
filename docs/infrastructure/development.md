@@ -2,7 +2,8 @@
 layout: default
 title: Infrastructure Development Setup
 description: Docker Compose setup, infrastructure services, and development environment configuration
-nav_order: 4
+nav_order: 2
+parent: Infrastructure
 ---
 
 # Infrastructure Development Setup
@@ -178,7 +179,7 @@ MinIO is used for storing PDF documents instead of local file system. The storag
 - **URL**: `http://localhost:5555`
 - **Persistent Mode**: Enabled (task history stored in SQLite)
 
-Flower provides real-time monitoring of Celery tasks, workers, and queues. See [Task Processing Documentation](tasks.md) for details.
+Flower provides real-time monitoring of Celery tasks, workers, and queues. See [Task Processing Documentation](tasks.html) for details.
 
 ### Prometheus
 
@@ -394,6 +395,6 @@ docker exec -i fde-postgres psql -U postgres financial_data_extractor < backup.s
 
 After setting up infrastructure:
 
-1. **[Apply Database Migrations](../database/migrations.md)** - Set up the database schema
-2. **[View Database Schema](../database/schema.md)** - Understand table structures
-3. **[Run Useful Queries](../database/queries.md)** - Query and inspect data
+1. **[Apply Database Migrations](../database/migrations.html)** - Set up the database schema
+2. **[View Database Schema](../database/schema.html)** - Understand table structures
+3. **[Run Useful Queries](../database/queries.html)** - Query and inspect data

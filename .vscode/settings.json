@@ -137,6 +137,7 @@
     "pdfplumber",
     "pdfs",
     "poolclass",
+    "Promtail",
     "psql",
     "pycache",
     "pydantic",

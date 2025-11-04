@@ -518,7 +518,7 @@ DELETE /api/v1/compiled-statements/{compiled-statement-id}
 
 Manage asynchronous Celery tasks for long-running operations.
 
-For detailed information about task processing, see [Task Processing Documentation](../task-processing.md).
+For detailed information about task processing, see [Task Processing Documentation](../infrastructure/tasks.html).
 
 #### Trigger Company Financial Data Extraction
 
@@ -812,7 +812,7 @@ CORS is configured to allow cross-origin requests from specified origins. In dev
 
 ## Request Timeout
 
-Default request timeout is 60 seconds. Long-running operations should be handled asynchronously via Celery tasks. See [Task Processing Documentation](../task-processing.md) for details.
+Default request timeout is 60 seconds. Long-running operations should be handled asynchronously via Celery tasks. See [Task Processing Documentation](../infrastructure/tasks.html) for details.
 
 ## Examples
 
@@ -899,6 +899,6 @@ Currently, filtering and sorting are not implemented. Future versions will add s
 
 ## Related Documentation
 
-- **[Database Schema](../database/schema.md)** - Data models and relationships
-- **[Infrastructure Development](../infrastructure/development.md)** - Docker setup and running the API
-- **[Backend Overview](../backend/index.md)** - Backend architecture and development guide
+- **[Database Schema](../database/schema.html)** - Data models and relationships
+- **[Infrastructure Development](../infrastructure/development.html)** - Docker setup and running the API
+- **[Backend Overview](../backend/index.html)** - Backend architecture and development guide

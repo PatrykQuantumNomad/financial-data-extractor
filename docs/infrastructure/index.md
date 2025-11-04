@@ -2,7 +2,7 @@
 layout: default
 title: Infrastructure
 description: Docker setup, development environment, and task processing
-nav_order: 6
+nav_order: 8
 has_children: true
 ---
 
@@ -41,8 +41,9 @@ The platform uses containerized services managed with Docker Compose:
 
 ## Documentation
 
-- **[Development Setup](development.md)** - Docker Compose setup, service management, and development workflows
-- **[Task Processing](tasks.md)** - Celery task system, workers, Flower monitoring, and task management
+- **[Development Setup](development.html)** - Docker Compose setup, service management, and development workflows
+- **[Task Processing](tasks.html)** - Celery task system, workers, Flower monitoring, and task management
+- **[Object Storage](storage.html)** - MinIO object storage setup and usage
 
 ## Quick Start
 
@@ -68,5 +69,5 @@ docker-compose -f docker-compose.dev.yml up -d
 
 ## Related Documentation
 
-- **[Backend Documentation](../backend/index.md)** - Backend architecture and setup
-- **[Database Documentation](../database/index.md)** - Database schema and migrations
+- **[Backend Documentation](../backend/index.html)** - Backend architecture and setup
+- **[Database Documentation](../database/index.html)** - Database schema and migrations

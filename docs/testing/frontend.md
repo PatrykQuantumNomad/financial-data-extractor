@@ -1,8 +1,8 @@
 ---
 layout: default
-title: Testing
+title: Frontend Testing
 description: Vitest unit testing setup, React Testing Library, and frontend testing strategies
-parent: Frontend
+parent: Testing Overview
 nav_order: 3
 ---
 
@@ -663,15 +663,13 @@ Tests verify that React components properly use React Query hooks and handle all
 ```typescript
 // Mock API client
 vi.mock("@/lib/api/client", () => ({
-  apiClient: { get: vi.fn(), post: vi.fn() }
+  apiClient: { get: vi.fn(), post: vi.fn() },
 }));
 
 // Create React Query wrapper
 function createWrapper(queryClient: QueryClient) {
   return ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={queryClient}>
-      {children}
-    </QueryClientProvider>
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
 }
 ```
@@ -696,7 +694,7 @@ Tests verify that React Query hooks properly integrate with API clients:
 it("useCompany should fetch company by id", async () => {
   mockApiClient.get.mockResolvedValue({ data: company });
   const { result } = renderHook(() => useCompany(1), { wrapper });
-  
+
   await waitFor(() => expect(result.current.isSuccess).toBe(true));
   expect(mockApiClient.get).toHaveBeenCalledWith("/companies/1");
 });
@@ -706,7 +704,7 @@ it("useCompany should handle 404 errors gracefully", async () => {
   const apiError = new Error("Company not found");
   (apiError as any).status = 404;
   mockApiClient.get.mockRejectedValue(apiError);
-  
+
   const { result } = renderHook(() => useCompany(999), { wrapper });
   await waitFor(() => expect(result.current.isError).toBe(true));
 });
@@ -743,9 +741,8 @@ Future E2E testing will use:
 
 ## Related Documentation
 
-- **[Frontend Architecture](architecture.md)** - Component structure and patterns
-- **[Frontend DevTools](devtools.md)** - React Query DevTools and ESLint
-- **[Testing & Quality Assurance](../.cursor/rules/50-testing-quality.mdc)** - Testing standards and guidelines
+- **[Frontend Architecture](frontend/architecture.html)** - Component structure and patterns
+- **[Frontend DevTools](frontend/devtools.html)** - React Query DevTools and ESLint
 
 ## Resources
 

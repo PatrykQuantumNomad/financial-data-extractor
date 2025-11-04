@@ -2,7 +2,7 @@
 layout: default
 title: Frontend
 description: Next.js 15 frontend architecture, components, React Query, and testing
-nav_order: 3
+nav_order: 5
 has_children: true
 ---
 
@@ -32,9 +32,9 @@ The frontend uses **Next.js App Router** with:
 
 ### Architecture
 
-- **[Frontend Architecture](architecture.md)** - Next.js 15 architecture, component structure, and data fetching
-- **[Testing Guide](testing.md)** - Vitest setup, React Testing Library, unit and integration tests
-- **[DevTools](devtools.md)** - React Query DevTools and development tools
+- **[Frontend Architecture](architecture.html)** - Next.js 15 architecture, component structure, and data fetching
+- **[Frontend Testing](../testing/frontend.html)** - Vitest setup, React Testing Library, unit and integration tests
+- **[DevTools](devtools.html)** - React Query DevTools and development tools
 
 ## Technology Stack
 

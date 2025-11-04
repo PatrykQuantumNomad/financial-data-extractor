@@ -2,7 +2,7 @@
 layout: default
 title: Database
 description: Database schema, migrations, queries, and database operations
-nav_order: 4
+nav_order: 7
 has_children: true
 ---
 
@@ -20,13 +20,13 @@ The Financial Data Extractor uses **PostgreSQL 16** as the primary database, sto
 
 ## Documentation
 
-- **[Database Schema](schema.md)** - Table structures, relationships, and JSONB formats
-- **[Database Migrations](migrations.md)** - Alembic migration commands and workflows
-- **[Database Queries](queries.md)** - Useful SQL queries for data inspection
+- **[Database Schema](schema.html)** - Table structures, relationships, and JSONB formats
+- **[Database Migrations](migrations.html)** - Alembic migration commands and workflows
+- **[Database Queries](queries.html)** - Useful SQL queries for data inspection
 
 ## Related Documentation
 
-- **[Backend Database Architecture](../backend/database.md)** - Connection pool management, repository pattern, and service layer
+- **[Backend Architecture](../backend/architecture.html)** - Connection pool management, repository pattern, and service layer
 
 ## Quick Reference
 

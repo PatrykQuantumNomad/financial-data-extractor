@@ -1,8 +1,9 @@
 ---
 layout: default
-title: Storage
-description: Overview of storage for scraped files
-nav_order: 13
+title: Object Storage
+description: MinIO object storage setup and usage
+nav_order: 4
+parent: Infrastructure
 ---
 
 # Object Storage with MinIO

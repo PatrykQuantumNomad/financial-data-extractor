@@ -2,7 +2,8 @@
 layout: default
 title: Testing Overview
 description: Overview of testing strategies for backend and frontend components
-nav_order: 12
+nav_order: 9
+has_children: true
 ---
 
 # Testing Overview
@@ -21,7 +22,7 @@ The project uses a comprehensive testing strategy across both backend and fronte
 - Integration workflows
 - Celery tasks
 
-For detailed backend testing documentation, see **[Backend Testing](../backend/testing.md)**.
+For detailed backend testing documentation, see **[Backend Testing](backend.html)**.
 
 ### Frontend Testing (Vitest)
 
@@ -30,7 +31,7 @@ For detailed backend testing documentation, see **[Backend Testing](../backend/t
 - User interactions
 - Component rendering
 
-For detailed frontend testing documentation, see **[Frontend Testing](../frontend/testing.md)**.
+For detailed frontend testing documentation, see **[Frontend Testing](frontend.html)**.
 
 ## Testing Principles
 
@@ -102,7 +103,7 @@ def test_something():
 - **Service Layer**: Business logic with proper exception handling
 - **Testcontainers**: Real PostgreSQL database for integration testing
 
-For detailed backend testing information, see **[Backend Testing](backend-testing)**.
+For detailed backend testing information, see **[Backend Testing](backend.html)**.
 
 ### Frontend Tests
 
@@ -125,7 +126,7 @@ For detailed backend testing information, see **[Backend Testing](backend-testin
 - **Error Handling**: Tests for loading, error, and empty states
 - **Mocking Strategy**: Clean API client mocking for isolated tests
 
-For detailed frontend testing information, see **[Frontend Testing](frontend-testing)**.
+For detailed frontend testing information, see **[Frontend Testing](frontend.html)**.
 
 ## Running Tests
 
@@ -144,7 +145,7 @@ make test-unit
 make test-cov
 ```
 
-For more backend testing commands, see **[Backend Testing](backend-testing)**.
+For more backend testing commands, see **[Backend Testing](backend.html)**.
 
 ### Frontend Tests (Vitest)
 
@@ -161,7 +162,7 @@ npm run test:watch
 npm run test:coverage
 ```
 
-For more frontend testing commands, see **[Frontend Testing](frontend-testing)**.
+For more frontend testing commands, see **[Frontend Testing](frontend.html)**.
 
 ## Test Structure
 
@@ -181,7 +182,7 @@ backend/
 │       └── utils/                # Utility tests (11 tests)
 ```
 
-For detailed backend test structure, see **[Backend Testing](backend-testing)**.
+For detailed backend test structure, see **[Backend Testing](backend.html)**.
 
 ### Frontend Test Structure
 
@@ -194,7 +195,7 @@ frontend/
 │       └── __tests__/           # Utility tests
 ```
 
-For detailed frontend test structure, see **[Frontend Testing](frontend-testing)**.
+For detailed frontend test structure, see **[Frontend Testing](frontend.html)**.
 
 ## Testing Workflow
 
@@ -229,7 +230,7 @@ Our testing strategy continues to evolve:
 
 ## Additional Resources
 
-- **[Backend Testing](../backend/testing.md)** - Complete pytest guide for FastAPI backend
-- **[Frontend Testing](../frontend/testing.md)** - Complete Vitest guide for Next.js frontend
-- **[API Reference](../api/reference.md)** - API documentation
-- **[Task Processing](../infrastructure/tasks.md)** - Celery task testing
+- **[Backend Testing](backend.html)** - Complete pytest guide for FastAPI backend
+- **[Frontend Testing](frontend.html)** - Complete Vitest guide for Next.js frontend
+- **[API Reference](../api/reference.html)** - API documentation
+- **[Task Processing](../infrastructure/tasks.html)** - Celery task testing

@@ -409,6 +409,6 @@ docker exec -it <backend-container-name> alembic upgrade head
 
 ## Related Documentation
 
-- **[Infrastructure Development Setup](../infrastructure/development.md)** - Setting up Docker services
-- **[Database Schema](schema.md)** - Understanding table structures
-- **[Database Queries](queries.md)** - Useful SQL query examples
+- **[Infrastructure Development Setup](../infrastructure/development.html)** - Setting up Docker services
+- **[Database Schema](schema.html)** - Understanding table structures
+- **[Database Queries](queries.html)** - Useful SQL query examples

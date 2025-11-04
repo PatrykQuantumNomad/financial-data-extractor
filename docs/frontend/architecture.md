@@ -139,6 +139,77 @@ graph TB
     class V,W data
 ```
 
+## Component Hierarchy
+
+The following diagram shows the component tree structure and how components are organized and nested:
+
+```mermaid
+graph TD
+    Root[Root Layout<br/>layout.tsx] --> Navbar[Navbar<br/>layout/navbar.tsx]
+    Root --> Main[Main Content Area]
+    
+    Main --> Dashboard[Home Page<br/>page.tsx]
+    Main --> Companies[Companies Detail<br/>companies/[id]/statements/[type]/page.tsx]
+    Main --> Documents[Documents Page<br/>Integrated into Statement Pages]
+    Main --> Extraction[Extraction Page<br/>extraction/page.tsx]
+    
+    Dashboard --> CompanyList[CompanyList<br/>dashboard/company-list.tsx]
+    CompanyList --> CompanyCard[CompanyCard<br/>Individual Company Cards]
+    CompanyCard --> UI1[UI Components<br/>shadcn/ui]
+    
+    Companies --> StatementView[StatementView<br/>statements/statement-view.tsx]
+    StatementView --> StatementNav[StatementTypeNav<br/>statements/statement-type-nav.tsx]
+    StatementView --> StatementTable[FinancialStatementTable<br/>statements/financial-statement-table.tsx]
+    StatementView --> DocumentList[DocumentList<br/>documents/document-list.tsx]
+    StatementView --> UI2[UI Components<br/>shadcn/ui]
+    StatementNav --> UI3[UI Components<br/>shadcn/ui]
+    StatementTable --> UI4[UI Components<br/>shadcn/ui]
+    DocumentList --> UI5[UI Components<br/>shadcn/ui]
+    
+    Extraction --> ExtractionControls[ExtractionControls<br/>extraction/extraction-controls.tsx]
+    Extraction --> ExtractionContent[ExtractionPageContent<br/>extraction/extraction-page-content.tsx]
+    Extraction --> TaskMonitor[TaskStatusMonitor<br/>extraction/task-status-monitor.tsx]
+    ExtractionControls --> UI6[UI Components<br/>shadcn/ui]
+    ExtractionContent --> UI7[UI Components<br/>shadcn/ui]
+    TaskMonitor --> UI8[UI Components<br/>shadcn/ui]
+    
+    CompanyList -.->|Uses| ReactQuery1[React Query Hooks<br/>Companies API]
+    StatementView -.->|Uses| ReactQuery2[React Query Hooks<br/>Statements API]
+    DocumentList -.->|Uses| ReactQuery3[React Query Hooks<br/>Documents API]
+    TaskMonitor -.->|Uses| ReactQuery4[React Query Hooks<br/>Tasks API]
+    
+    style Root fill:#000000,stroke:#fff,stroke-width:2px,color:#fff
+    style Navbar fill:#61dafb,stroke:#20232a,stroke-width:2px
+    style Dashboard fill:#000000,stroke:#fff,stroke-width:2px,color:#fff
+    style Companies fill:#000000,stroke:#fff,stroke-width:2px,color:#fff
+    style Extraction fill:#000000,stroke:#fff,stroke-width:2px,color:#fff
+    style CompanyList fill:#61dafb,stroke:#20232a,stroke-width:2px
+    style StatementView fill:#61dafb,stroke:#20232a,stroke-width:2px
+    style DocumentList fill:#61dafb,stroke:#20232a,stroke-width:2px
+    style ExtractionControls fill:#61dafb,stroke:#20232a,stroke-width:2px
+    style TaskMonitor fill:#61dafb,stroke:#20232a,stroke-width:2px
+    style UI1 fill:#f7df1e,stroke:#323330,stroke-width:2px
+    style UI2 fill:#f7df1e,stroke:#323330,stroke-width:2px
+    style UI3 fill:#f7df1e,stroke:#323330,stroke-width:2px
+    style UI4 fill:#f7df1e,stroke:#323330,stroke-width:2px
+    style UI5 fill:#f7df1e,stroke:#323330,stroke-width:2px
+    style UI6 fill:#f7df1e,stroke:#323330,stroke-width:2px
+    style UI7 fill:#f7df1e,stroke:#323330,stroke-width:2px
+    style UI8 fill:#f7df1e,stroke:#323330,stroke-width:2px
+    style ReactQuery1 fill:#ff6b6b,stroke:#fff,stroke-width:2px,color:#fff
+    style ReactQuery2 fill:#ff6b6b,stroke:#fff,stroke-width:2px,color:#fff
+    style ReactQuery3 fill:#ff6b6b,stroke:#fff,stroke-width:2px,color:#fff
+    style ReactQuery4 fill:#ff6b6b,stroke:#fff,stroke-width:2px,color:#fff
+```
+
+**Component Organization:**
+
+- **Pages (Black)**: Next.js App Router pages that define routes
+- **Feature Components (Blue)**: Domain-specific components organized by feature
+- **UI Components (Yellow)**: Reusable shadcn/ui components
+- **Data Layer (Red)**: React Query hooks that fetch data from the API
+- **Dashed Lines**: Data flow dependencies (components use React Query hooks)
+
 ## Project Structure
 
 ```
@@ -624,7 +695,7 @@ npm run test:ui
 - **Layout Components**: Navbar (100%)
 - **Total**: 65 tests, all passing
 
-For detailed testing documentation, see **[Frontend Testing](testing.md)**.
+For detailed testing documentation, see **[Frontend Testing](../testing/frontend.html)**.
 
 ## Error Handling
 

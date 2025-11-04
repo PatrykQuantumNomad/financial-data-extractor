@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
 import { Navbar } from "@/components/layout/navbar";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 describe("Navbar", () => {
   it("renders the navbar with logo and title", () => {
@@ -32,7 +32,7 @@ describe("Navbar", () => {
     expect(buttons).toHaveLength(3);
 
     // All buttons should have ghost styling
-    buttons.forEach(button => {
+    buttons.forEach((button) => {
       expect(button).toHaveClass("hover:bg-accent");
     });
   });
@@ -42,7 +42,15 @@ describe("Navbar", () => {
 
     const navbar = screen.getByRole("navigation");
     expect(navbar).toBeInTheDocument();
-    expect(navbar).toHaveClass("border-b", "bg-background/95", "backdrop-blur-sm", "shadow-sm", "sticky", "top-0", "z-50");
+    expect(navbar).toHaveClass(
+      "border-b",
+      "bg-background/95",
+      "backdrop-blur-sm",
+      "shadow-sm",
+      "sticky",
+      "top-0",
+      "z-50"
+    );
   });
 
   it("renders home link with logo and text", () => {

@@ -1,14 +1,14 @@
 ---
 layout: default
-title: Database Architecture
+title: Backend Architecture
 description: Database connection management, dependency injection, repository pattern, and service layer in FastAPI
 parent: Backend
 nav_order: 2
 ---
 
-# Backend Database Architecture
+# Backend Architecture
 
-This guide explains how the database is used in the FastAPI backend application, covering connection pool management, dependency injection, repository pattern, and the complete request flow from API endpoints to database operations.
+This guide explains the backend architecture of the FastAPI application, covering connection pool management, dependency injection, repository pattern, service layer, and the complete request flow from API endpoints to database operations.
 
 ## Architecture Overview
 
@@ -697,7 +697,7 @@ async def db_pool():
 
 ## Related Documentation
 
-- **[Database Schema](../database/schema.md)** - Table structures and relationships
-- **[Database Migrations](../database/migrations.md)** - Schema version control
-- **[Database Queries](../database/queries.md)** - Useful SQL query examples
-- **[Backend Testing](testing.md)** - Testing database operations
+- **[Database Schema](../database/schema.html)** - Table structures and relationships
+- **[Database Migrations](../database/migrations.html)** - Schema version control
+- **[Database Queries](../database/queries.html)** - Useful SQL query examples
+- **[Backend Testing](../testing/backend.html)** - Testing database operations

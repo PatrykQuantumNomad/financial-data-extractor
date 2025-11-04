@@ -1,9 +1,9 @@
 ---
 layout: default
-title: Testing
+title: Backend Testing
 description: Complete guide to pytest testing for FastAPI backend, unit tests, fixtures, and coverage
-parent: Backend
-nav_order: 3
+parent: Testing Overview
+nav_order: 2
 ---
 
 # Backend Testing Guide
@@ -184,18 +184,18 @@ uv run pytest -n auto
 
 #### Test Files
 
-| Category       | File                            | Tests | Coverage | Description               |
-| -------------- | ------------------------------- | ----- | -------- | ------------------------- |
-| **API**        | `test_companies_endpoints.py`   | 17    | 100%     | Company CRUD operations   |
-| **API**        | `test_documents_endpoints.py`   | 17    | 100%     | Document management       |
-| **API**        | `test_extractions_endpoints.py` | 15    | 100%     | Extraction operations     |
-| **API**        | `test_error_handler.py`         | 13    | 100%     | Error handling middleware |
-| **API**        | `test_middleware.py`            | 9     | 100%     | Request middleware        |
-| **Models**     | `test_models.py`                | 12    | 100%     | DB models (Company, Document, Extraction) |
-| **Schemas**    | `test_schemas.py`               | 18    | 100%     | Pydantic schemas validation |
-| **Services**   | `test_company_service.py`       | 13    | 89%      | Business logic layer |
-| **Utils**      | `test_file_utils.py`            | 7     | 81%      | File operations |
-| **Utils**      | `test_log_filter.py`            | 4     | 100%     | Logging filters |
+| Category     | File                            | Tests | Coverage | Description                               |
+| ------------ | ------------------------------- | ----- | -------- | ----------------------------------------- |
+| **API**      | `test_companies_endpoints.py`   | 17    | 100%     | Company CRUD operations                   |
+| **API**      | `test_documents_endpoints.py`   | 17    | 100%     | Document management                       |
+| **API**      | `test_extractions_endpoints.py` | 15    | 100%     | Extraction operations                     |
+| **API**      | `test_error_handler.py`         | 13    | 100%     | Error handling middleware                 |
+| **API**      | `test_middleware.py`            | 9     | 100%     | Request middleware                        |
+| **Models**   | `test_models.py`                | 12    | 100%     | DB models (Company, Document, Extraction) |
+| **Schemas**  | `test_schemas.py`               | 18    | 100%     | Pydantic schemas validation               |
+| **Services** | `test_company_service.py`       | 13    | 89%      | Business logic layer                      |
+| **Utils**    | `test_file_utils.py`            | 7     | 81%      | File operations                           |
+| **Utils**    | `test_log_filter.py`            | 4     | 100%     | Logging filters                           |
 
 #### Coverage Highlights
 
@@ -243,11 +243,13 @@ uv run pytest -n auto
 **Database Models:**
 
 - ✅ **Company Model** - 100% coverage
+
   - Model instantiation
   - String representation
   - Nullable fields
 
 - ✅ **Document Model** - 100% coverage
+
   - Model instantiation
   - String representation
   - Foreign key relationships
@@ -259,10 +261,12 @@ uv run pytest -n auto
 **Schemas:**
 
 - ✅ **Company Schemas** - 100% coverage
+
   - CompanyBase, CompanyCreate, CompanyUpdate, CompanyResponse
   - Validation and field constraints
 
 - ✅ **Document Schemas** - 100% coverage
+
   - DocumentBase, DocumentCreate, DocumentUpdate, DocumentResponse
   - Fiscal year validation
 
@@ -280,6 +284,7 @@ uv run pytest -n auto
 **Utils:**
 
 - ✅ **file_utils** - 81% coverage
+
   - JSON file loading
   - Error handling (file not found, invalid JSON, encoding)
   - Complex data structures
@@ -753,14 +758,14 @@ class TestCompaniesIntegration:
         # Read
         get_response = test_client.get(f"/api/v1/companies/{company_id}")
         assert get_response.status_code == 200
-        
+
         # Update
         update_response = test_client.put(
             f"/api/v1/companies/{company_id}",
             json={"name": "Updated"}
         )
         assert update_response.status_code == 200
-        
+
         # Delete
         delete_response = test_client.delete(f"/api/v1/companies/{company_id}")
         assert delete_response.status_code == 204
@@ -768,12 +773,12 @@ class TestCompaniesIntegration:
 
 **Current Coverage:**
 
-| Test | Description | Status |
-|------|-------------|--------|
-| `test_create_read_update_delete_company_workflow` | Complete CRUD lifecycle | ✅ |
-| `test_list_companies_with_pagination` | List with pagination | ✅ |
-| `test_get_company_by_ticker` | Get by ticker symbol | ✅ |
-| `test_create_multiple_companies_success` | Multiple companies | ✅ |
+| Test                                              | Description             | Status |
+| ------------------------------------------------- | ----------------------- | ------ |
+| `test_create_read_update_delete_company_workflow` | Complete CRUD lifecycle | ✅     |
+| `test_list_companies_with_pagination`             | List with pagination    | ✅     |
+| `test_get_company_by_ticker`                      | Get by ticker symbol    | ✅     |
+| `test_create_multiple_companies_success`          | Multiple companies      | ✅     |
 
 ### Running Integration Tests
 
@@ -864,13 +869,3 @@ uv run pytest -l tests/unit/api/test_companies_endpoints.py::test_create_company
 - [pytest-mock Documentation](https://pytest-mock.readthedocs.io/)
 - [Coverage.py Documentation](https://coverage.readthedocs.io/)
 - [FastAPI Testing Documentation](https://fastapi.tiangolo.com/tutorial/testing/)
-
-## Next Steps
-
-1. ✅ **Unit tests** - API endpoints, middleware, models, schemas, services, utils (124 tests)
-2. 🔄 **Integration tests** - Database and external services (in progress)
-3. ⏳ **Additional service tests** - Document, Extraction, CompiledStatement services
-4. ⏳ **Repository tests** - Database layer with mocked connections
-5. ⏳ **End-to-end tests** - Complete workflows
-6. ⏳ **Performance tests** - Load and stress testing
-7. ⏳ **Security tests** - Vulnerability scanning

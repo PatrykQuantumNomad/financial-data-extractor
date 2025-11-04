@@ -2,7 +2,7 @@
 layout: default
 title: Backend
 description: FastAPI backend architecture, database, services, and testing
-nav_order: 2
+nav_order: 4
 has_children: true
 ---
 
@@ -31,14 +31,14 @@ The backend uses a **layered architecture** with clear separation of concerns:
 
 ### Architecture
 
-- **[Database Architecture](database.md)** - Connection pool management, dependency injection, repository pattern, and exception handling
-- **[Testing Guide](testing.md)** - pytest setup, unit tests, integration tests with testcontainers
+- **[Backend Architecture](architecture.html)** - Connection pool management, dependency injection, repository pattern, and exception handling
+- **[Backend Testing](../testing/backend.html)** - pytest setup, unit tests, integration tests with testcontainers
 
 ### Related Documentation
 
-- **[Database Schema](../database/schema.md)** - Table structures and relationships
-- **[Database Migrations](../database/migrations.md)** - Alembic migration workflows
-- **[API Reference](../api/reference.md)** - Complete REST API documentation
+- **[Database Schema](../database/schema.html)** - Table structures and relationships
+- **[Database Migrations](../database/migrations.html)** - Alembic migration workflows
+- **[API Reference](../api/reference.html)** - Complete REST API documentation
 
 ## Technology Stack
 

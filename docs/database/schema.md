@@ -380,7 +380,7 @@ The Mermaid ERD diagram above shows the relationships. Here are the key relation
 
 ## Schema Evolution
 
-The schema is managed through [Database Migrations](migrations.md). All schema changes should:
+The schema is managed through [Database Migrations](migrations.html). All schema changes should:
 
 1. Be created as migrations using `make migrate-create NAME="description"`
 2. Be reviewed before applying
@@ -389,6 +389,6 @@ The schema is managed through [Database Migrations](migrations.md). All schema c
 
 ## Related Documentation
 
-- **[Database Migrations](migrations.md)** - How to create and apply migrations
-- **[Database Queries](queries.md)** - Useful SQL query examples
-- **[Infrastructure Development Setup](../infrastructure/development.md)** - Setting up the database
+- **[Database Migrations](migrations.html)** - How to create and apply migrations
+- **[Database Queries](queries.html)** - Useful SQL query examples
+- **[Infrastructure Development Setup](../infrastructure/development.html)** - Setting up the database
