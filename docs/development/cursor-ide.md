@@ -249,6 +249,8 @@ VS Code tasks for common development operations:
 
 **Full Tasks File**: [`.vscode/tasks.json`](https://github.com/PatrykQuantumNomad/financial-data-extractor/blob/main/.vscode/tasks.json)
 
+**For detailed Jekyll documentation development, see [GitHub Pages Documentation](github-pages.html).**
+
 ### `extensions.json`
 
 Recommended VS Code extensions for the project:

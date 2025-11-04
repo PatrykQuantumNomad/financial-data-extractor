@@ -21,3 +21,4 @@ The project includes comprehensive configuration for:
 ## Quick Links
 
 - **[Cursor IDE Configuration](cursor-ide.html)** - Cursor rules, VS Code settings, debug configurations, and tasks
+- **[GitHub Pages Documentation](github-pages.html)** - Local Jekyll development, Ruby/Gem/Bundle commands, and deployment
