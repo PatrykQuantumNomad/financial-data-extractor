@@ -39,7 +39,80 @@ git clone https://github.com/PatrykQuantumNomad/financial-data-extractor.git
 cd financial-data-extractor
 ```
 
-### 2. Set Up Infrastructure
+### 2. Configure Environment Variables
+
+**⚠️ IMPORTANT: Configure environment variables BEFORE starting any servers.**
+
+Both backend and frontend require `.env` files to be set up from their respective `.env.example` templates.
+
+#### Backend Environment Variables
+
+Create `.env` file in the backend directory:
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+Edit `backend/.env` and configure the required values:
+
+```bash
+# OpenRouter API Key (REQUIRED - get from https://openrouter.ai)
+OPEN_ROUTER_API_KEY=your_openrouter_api_key_here
+
+# OpenRouter models
+OPEN_ROUTER_MODEL_SCRAPING=openai/gpt-4.1-mini
+OPEN_ROUTER_MODEL_EXTRACTION=openai/gpt-4.1-mini
+
+# Database configuration
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=financial_data_extractor
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+
+# Redis configuration
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
+
+# MinIO configuration
+MINIO_ENABLED=true
+MINIO_ENDPOINT=localhost:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_BUCKET_NAME=financial-documents
+MINIO_USE_SSL=false
+```
+
+**Critical Configuration:**
+- `OPEN_ROUTER_API_KEY` - **Required** for LLM operations. Get your API key from [OpenRouter.ai](https://openrouter.ai)
+- Database and Redis settings should match your Docker Compose configuration
+- MinIO settings use default credentials for development
+
+#### Frontend Environment Variables
+
+Create `.env` file in the frontend directory:
+
+```bash
+cd frontend
+cp .env.example .env
+```
+
+Edit `frontend/.env` and configure if needed:
+
+```bash
+# App Configuration
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+NEXT_PUBLIC_API_URL="http://localhost:3030"
+NEXT_PUBLIC_APP_NAME="Financial Data Extractor"
+NODE_ENV="development"
+NEXT_PUBLIC_LOG_LEVEL="debug"
+```
+
+**Note:** Default values work for local development. Adjust `NEXT_PUBLIC_API_URL` if your backend runs on a different port.
+
+### 3. Set Up Infrastructure
 
 Start all required services using Docker Compose:
 
@@ -70,39 +143,9 @@ docker exec -it fde-redis redis-cli ping
 # http://localhost:9001 (minioadmin/minioadmin)
 ```
 
-### 3. Configure Environment Variables
-
-Create `.env` files in the backend directory:
-
-```bash
-cd ../backend
-cp .env.example .env
-```
-
-Edit `.env` and configure:
-
-```bash
-# Database
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/financial_data_extractor
-
-# Redis
-REDIS_URL=redis://localhost:6379/0
-
-# OpenRouter (required)
-OPEN_ROUTER_API_KEY=your_openrouter_api_key_here
-OPEN_ROUTER_MODEL_SCRAPING=openai/gpt-4o-mini
-OPEN_ROUTER_MODEL_EXTRACTION=openai/gpt-4o-mini
-
-# MinIO
-MINIO_ENABLED=true
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-MINIO_BUCKET_NAME=financial-documents
-MINIO_USE_SSL=false
-```
-
 ### 4. Set Up Backend
+
+**Note:** Ensure you've completed Step 2 (Environment Variables) before proceeding.
 
 ```bash
 # Install dependencies
@@ -116,6 +159,8 @@ make test
 ```
 
 ### 5. Set Up Frontend
+
+**Note:** Ensure you've completed Step 2 (Environment Variables) before proceeding.
 
 ```bash
 cd ../frontend

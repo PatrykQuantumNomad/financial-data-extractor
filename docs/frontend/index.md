@@ -49,10 +49,19 @@ The frontend uses **Next.js App Router** with:
 
 ## Quick Start
 
+**⚠️ IMPORTANT: Configure environment variables first!**
+
 ```bash
 cd frontend
+# Copy .env.example to .env and configure if needed
+cp .env.example .env
+# Edit .env if you need to change API URL or other settings
+
+# Install dependencies
 npm install
+
+# Start the development server
 npm run dev
 ```
 
-See the [Frontend README](../../frontend/README.md) for detailed setup instructions.
+See the [Frontend README](../../frontend/README.md) and [Installation Guide](../getting-started/installation.html) for detailed setup instructions.

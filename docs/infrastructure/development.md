@@ -223,12 +223,27 @@ Loki aggregates logs from all services. Logs are queried via Grafana's Explore v
 
 ## Environment Configuration
 
+**⚠️ IMPORTANT: Configure environment variables BEFORE deploying or running backend/frontend servers.**
+
+Both backend and frontend require `.env` files to be created from their respective `.env.example` templates. This is one of the first steps you should complete after cloning the repository.
+
 ### Backend Environment Variables
 
-Create a `.env` file in the `backend/` directory:
+Create a `.env` file in the `backend/` directory from the template:
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+Then edit `backend/.env` with your configuration:
 
 ```bash
 # backend/.env (for Docker Compose)
+# OpenRouter API Key (REQUIRED)
+OPEN_ROUTER_API_KEY=your_openrouter_api_key_here
+
+# Database Configuration
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=financial_data_extractor
@@ -239,11 +254,39 @@ DB_PASSWORD=postgres
 REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_DB=0
-REDIS_PASSWORD=postgres  # Set if Redis requires password
+REDIS_PASSWORD=  # Set if Redis requires password
 REDIS_MAX_CONNECTIONS=10
+
+# MinIO Configuration
+MINIO_ENABLED=true
+MINIO_ENDPOINT=localhost:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_BUCKET_NAME=financial-documents
+MINIO_USE_SSL=false
 
 # Or use DATABASE_URL directly
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/financial_data_extractor
+```
+
+### Frontend Environment Variables
+
+Create a `.env` file in the `frontend/` directory from the template:
+
+```bash
+cd frontend
+cp .env.example .env
+```
+
+Then edit `frontend/.env` with your configuration (defaults work for local development):
+
+```bash
+# frontend/.env
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+NEXT_PUBLIC_API_URL="http://localhost:3030"
+NEXT_PUBLIC_APP_NAME="Financial Data Extractor"
+NODE_ENV="development"
+NEXT_PUBLIC_LOG_LEVEL="debug"
 ```
 
 ### Connecting from Docker Container

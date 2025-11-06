@@ -51,11 +51,22 @@ The backend uses a **layered architecture** with clear separation of concerns:
 
 ## Quick Start
 
+**⚠️ IMPORTANT: Configure environment variables first!**
+
 ```bash
 cd backend
+# Copy .env.example to .env and configure required values (especially OPEN_ROUTER_API_KEY)
+cp .env.example .env
+# Edit .env with your configuration
+
+# Install dependencies
 make install-dev
+
+# Run database migrations
 make migrate
+
+# Start the server
 make run
 ```
 
-See the [Backend README](../../backend/README.md) for detailed setup instructions.
+See the [Backend README](../../backend/README.md) and [Installation Guide](../getting-started/installation.html) for detailed setup instructions.

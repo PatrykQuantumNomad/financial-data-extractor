@@ -19,8 +19,19 @@ The fastest way to get started:
 git clone https://github.com/PatrykQuantumNomad/financial-data-extractor.git
 cd financial-data-extractor
 
+# ⚠️ CRITICAL: Configure environment variables FIRST
+# Backend: Copy .env.example to .env and configure
+cd backend
+cp .env.example .env
+# Edit .env and set OPEN_ROUTER_API_KEY and other required values
+
+# Frontend: Copy .env.example to .env and configure
+cd ../frontend
+cp .env.example .env
+# Edit .env if you need to change API URL or other settings
+
 # Start infrastructure services (PostgreSQL, Redis, MinIO, monitoring)
-cd infrastructure
+cd ../infrastructure
 make up-dev
 
 # Setup backend
