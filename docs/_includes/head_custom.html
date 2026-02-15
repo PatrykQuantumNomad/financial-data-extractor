@@ -9,3 +9,102 @@
 <link rel="apple-touch-icon" sizes="180x180" href="{{ '/assets/brand/logo-180x180.png' | relative_url }}">
 <link rel="icon" type="image/png" sizes="32x32" href="{{ '/assets/brand/favicon-32x32.png' | relative_url }}">
 <link rel="icon" type="image/png" sizes="16x16" href="{{ '/assets/brand/favicon-16x16.png' | relative_url }}">
+
+<!-- Robots meta tag for search engine indexing -->
+<meta name="robots" content="index, follow">
+
+<!-- SoftwareApplication structured data (JSON-LD) -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Financial Data Extractor",
+  "description": "Open-source platform to automatically extract, normalize, and compile 10 years of financial statements from European company annual reports using LLM-powered PDF parsing.",
+  "url": "https://financial-data-extractor.patrykgolabek.dev",
+  "applicationCategory": "FinanceApplication",
+  "operatingSystem": "Linux, macOS, Windows (via Docker)",
+  "license": "https://opensource.org/licenses/Apache-2.0",
+  "isAccessibleForFree": true,
+  "codeRepository": "https://github.com/PatrykQuantumNomad/financial-data-extractor",
+  "programmingLanguage": ["Python", "TypeScript"],
+  "author": {
+    "@type": "Person",
+    "name": "Patryk Golabek",
+    "url": "https://patrykgolabek.dev",
+    "sameAs": [
+      "https://github.com/PatrykQuantumNomad",
+      "https://x.com/patrykgolabek"
+    ]
+  },
+  "featureList": [
+    "Automated web scraping of investor relations websites",
+    "Intelligent PDF document classification",
+    "LLM-powered financial statement extraction via OpenRouter",
+    "Multi-year data normalization with fuzzy matching",
+    "10-year financial data compilation",
+    "Support for Income Statement, Balance Sheet, and Cash Flow Statement",
+    "REST API for programmatic access",
+    "Next.js 15 frontend with data visualization",
+    "Celery distributed task processing",
+    "Prometheus and Grafana monitoring stack"
+  ],
+  "softwareRequirements": "Docker, Python 3.13, Node.js 22",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  }
+}
+</script>
+
+<!-- FAQPage structured data (JSON-LD) -->
+{% if page.url == "/" %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What financial statements does the Financial Data Extractor support?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The platform extracts three core financial statements from annual reports: Income Statement (also called P&L or Statement of Operations), Balance Sheet (Statement of Financial Position), and Cash Flow Statement. It preserves the exact line item hierarchy and supports multi-year data extraction from a single document."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Which LLM models are supported?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The platform uses OpenRouter as an API gateway, providing access to models including OpenAI GPT-4o, GPT-4o-mini, and Anthropic Claude. The model is configurable per task type \u2014 you can use a lighter model for web scraping and a more capable model for financial statement extraction."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does it handle large PDF documents?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Financial annual reports can be 200+ pages. The extractor uses a smart page selection approach: PyMuPDF quickly extracts text from all pages, identifies pages containing financial keywords, then runs targeted table extraction (via camelot-py) only on those relevant pages. This reduces processing time from hours to minutes per document."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I add companies beyond the initial 6 European companies?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. While the initial seed data includes AstraZeneca, SAP, Siemens, ASML, Unilever, and Allianz, any company with an investor relations website can be added dynamically via the REST API. The scraping pipeline will automatically discover and download their annual reports."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is the Financial Data Extractor open source?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. The entire platform is released under the Apache 2.0 License. The source code is available on GitHub at https://github.com/PatrykQuantumNomad/financial-data-extractor."
+      }
+    }
+  ]
+}
+</script>
+{% endif %}

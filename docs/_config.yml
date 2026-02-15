@@ -1,7 +1,8 @@
 title: Financial Data Extractor
+tagline: "LLM-Powered Annual Report Parsing"
 email: patryk@translucentcomputing.com
 description: >-
-  Open-source platform to automatically extract, normalize, and compile 10 years of financial statements from European company annual reports using LLM-powered PDF parsing.
+  Extract and compile 10 years of financial statements from European annual reports with LLM-powered PDF parsing.
 url: "https://financial-data-extractor.patrykgolabek.dev"
 baseurl: "" # Custom domain
 twitter_username: patrykgolabek
@@ -71,6 +72,10 @@ aux_links:
     - "https://patrykgolabek.dev"
   "GitHub":
     - "https://github.com/PatrykQuantumNomad/financial-data-extractor"
+  "JobFlow":
+    - "https://jobflow.patrykgolabek.dev/"
+  "Net Tools":
+    - "https://networking-tools.patrykgolabek.dev/"
 
 # Makes Aux links open in a new tab. Default is false
 aux_links_new_tab: true
