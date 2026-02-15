@@ -1,0 +1,57 @@
+---
+layout: null
+permalink: /llms.txt
+---
+# Financial Data Extractor
+
+> Open-source platform to automatically extract, normalize, and compile 10 years of financial statements (Income Statement, Balance Sheet, Cash Flow Statement) from European company annual reports using LLM-powered PDF parsing.
+
+The Financial Data Extractor automates the labor-intensive process of collecting and standardizing financial data from investor relations websites. It uses Crawl4AI for web scraping, OpenRouter for LLM-powered extraction, and a modern FastAPI + Celery + PostgreSQL stack for processing and storage.
+
+## Key Facts
+
+- License: Apache 2.0
+- Author: Patryk Golabek
+- Source: https://github.com/PatrykQuantumNomad/financial-data-extractor
+- Documentation: https://financial-data-extractor.patrykgolabek.dev
+
+## Target Companies
+
+Initial scope covers 6 European companies: AstraZeneca PLC, SAP SE, Siemens AG, ASML Holding N.V., Unilever PLC, Allianz SE. The architecture supports adding more companies dynamically via API.
+
+## Technology Stack
+
+- Backend: Python 3.13, FastAPI, Celery, SQLAlchemy, Alembic
+- Frontend: Next.js 15, React 19, TypeScript, TailwindCSS, shadcn/ui
+- Database: PostgreSQL 16 (JSONB), Redis 8
+- PDF Processing: PyMuPDF, camelot-py, pdfplumber
+- Web Scraping: Crawl4AI with LLM extraction strategy
+- LLM: OpenRouter API gateway (GPT-4o, GPT-4o-mini, Claude)
+- Storage: MinIO (S3-compatible)
+- Monitoring: Prometheus, Grafana, Loki, Flower
+
+## Documentation
+
+- [Home](https://financial-data-extractor.patrykgolabek.dev/): Project overview, architecture diagram, and technology stack
+- [Getting Started](https://financial-data-extractor.patrykgolabek.dev/getting-started/): Quick start guide and installation instructions
+- [Installation](https://financial-data-extractor.patrykgolabek.dev/getting-started/installation): Detailed setup for backend, frontend, and infrastructure
+- [Architecture Overview](https://financial-data-extractor.patrykgolabek.dev/architecture/): System architecture, layered design, and component interactions
+- [Data Flow](https://financial-data-extractor.patrykgolabek.dev/architecture/data-flow): Three-phase workflow from scraping to compilation
+- [Technology Decisions](https://financial-data-extractor.patrykgolabek.dev/architecture/technology-decisions): Rationale behind technology choices
+- [Backend](https://financial-data-extractor.patrykgolabek.dev/backend/): FastAPI backend architecture and services
+- [Backend Architecture](https://financial-data-extractor.patrykgolabek.dev/backend/architecture): Database connections, dependency injection, repository pattern
+- [Frontend](https://financial-data-extractor.patrykgolabek.dev/frontend/): Next.js 15 frontend architecture and components
+- [API Reference](https://financial-data-extractor.patrykgolabek.dev/api/reference): Complete REST API documentation with endpoints and examples
+- [Database Schema](https://financial-data-extractor.patrykgolabek.dev/database/schema): Table structures, relationships, and JSONB formats
+- [Database Migrations](https://financial-data-extractor.patrykgolabek.dev/database/migrations): Alembic migration commands and workflows
+- [Infrastructure Setup](https://financial-data-extractor.patrykgolabek.dev/infrastructure/development): Docker Compose setup and development environment
+- [Multi-Arch Docker](https://financial-data-extractor.patrykgolabek.dev/infrastructure/docker-multiarch): Building Docker images for AMD64 and ARM64
+- [Task Processing](https://financial-data-extractor.patrykgolabek.dev/infrastructure/tasks): Celery task system, workers, and Flower monitoring
+- [Object Storage](https://financial-data-extractor.patrykgolabek.dev/infrastructure/storage): MinIO S3-compatible storage setup
+- [Testing](https://financial-data-extractor.patrykgolabek.dev/testing/): Backend (pytest) and frontend (Vitest) testing strategies
+- [Results](https://financial-data-extractor.patrykgolabek.dev/results): Screenshots of extraction results
+- [Video Demo](https://financial-data-extractor.patrykgolabek.dev/video): Video demonstrations of the platform
+
+## Optional
+
+- [llms-full.txt](https://financial-data-extractor.patrykgolabek.dev/llms-full.txt): Detailed content from all documentation pages

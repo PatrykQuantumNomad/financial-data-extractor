@@ -1,8 +1,9 @@
 ---
 layout: default
 title: Financial Data Extractor
-description: Automated platform to extract, normalize, and compile 10 years of financial statements from European company annual reports
+description: Open-source platform to automatically extract, normalize, and compile 10 years of financial statements from European company annual reports using LLM-powered PDF parsing.
 nav_order: 1
+image: /assets/brand/logo-512x512.png
 ---
 
 # Financial Data Extractor
@@ -293,6 +294,28 @@ This documentation site provides comprehensive guides organized by category:
 
 - **[Development Tools](development/)** - IDE configuration and development environment
   - **[Cursor IDE Configuration](development/cursor-ide.html)** - Cursor rules, VS Code settings, debug configurations, and tasks
+
+## Frequently Asked Questions
+
+**What financial statements does the Financial Data Extractor support?**
+
+The platform extracts three core financial statements from annual reports: Income Statement (also called P&L or Statement of Operations), Balance Sheet (Statement of Financial Position), and Cash Flow Statement. It preserves the exact line item hierarchy and supports multi-year data extraction from a single document.
+
+**Which LLM models are supported?**
+
+The platform uses OpenRouter as an API gateway, providing access to models including OpenAI GPT-4o, GPT-4o-mini, and Anthropic Claude. The model is configurable per task type — you can use a lighter model for web scraping and a more capable model for financial statement extraction.
+
+**How does it handle large PDF documents?**
+
+Financial annual reports can be 200+ pages. The extractor uses a smart page selection approach: PyMuPDF quickly extracts text from all pages, identifies pages containing financial keywords, then runs targeted table extraction (via camelot-py) only on those relevant pages. This reduces processing time from hours to minutes per document.
+
+**Can I add companies beyond the initial 6 European companies?**
+
+Yes. While the initial seed data includes AstraZeneca, SAP, Siemens, ASML, Unilever, and Allianz, any company with an investor relations website can be added dynamically via the REST API. The scraping pipeline will automatically discover and download their annual reports.
+
+**Is the Financial Data Extractor open source?**
+
+Yes. The entire platform is released under the Apache 2.0 License. The source code is available on [GitHub](https://github.com/PatrykQuantumNomad/financial-data-extractor).
 
 ## License
 

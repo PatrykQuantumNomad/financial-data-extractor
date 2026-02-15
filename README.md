@@ -35,7 +35,7 @@ The Financial Data Extractor automates the labor-intensive process of collecting
 
 ## Documentation
 
-📚 **[Full Documentation →](https://patrykquantumnomad.github.io/financial-data-extractor/)**
+📚 **[Full Documentation →](https://financial-data-extractor.patrykgolabek.dev/)**
 
 Complete documentation available on GitHub Pages including:
 
@@ -82,7 +82,7 @@ npm run dev
 - Flower: `http://localhost:5555`
 - MinIO Console: `http://localhost:9001`
 
-For detailed setup instructions, see the [Full Documentation](https://patrykquantumnomad.github.io/financial-data-extractor/infrastructure-development).
+For detailed setup instructions, see the [Full Documentation](https://financial-data-extractor.patrykgolabek.dev/infrastructure-development).
 
 ## License
 

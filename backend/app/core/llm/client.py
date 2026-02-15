@@ -60,7 +60,7 @@ class OpenRouterClient:
         self.timeout = timeout
         self.max_retries = max_retries
         self.http_referer = (
-            http_referer or "https://github.com/patrykquantumnomad/financial-data-extractor"
+            http_referer or "https://financial-data-extractor.patrykgolabek.dev"
         )
         self.x_title = x_title or "Financial Data Extractor"
 

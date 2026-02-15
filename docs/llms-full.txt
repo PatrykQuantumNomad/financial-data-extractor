@@ -1,0 +1,124 @@
+---
+layout: null
+permalink: /llms-full.txt
+---
+# Financial Data Extractor - Full Documentation
+
+> Open-source platform to automatically extract, normalize, and compile 10 years of financial statements (Income Statement, Balance Sheet, Cash Flow Statement) from European company annual reports using LLM-powered PDF parsing.
+
+- License: Apache 2.0
+- Author: Patryk Golabek
+- Source: https://github.com/PatrykQuantumNomad/financial-data-extractor
+- Documentation: https://financial-data-extractor.patrykgolabek.dev
+
+---
+
+## What It Does
+
+The Financial Data Extractor automates collecting and standardizing financial data from annual reports:
+
+1. **Web Scraping**: Discovers and downloads annual reports from investor relations websites using Crawl4AI with LLM-powered extraction
+2. **Document Classification**: Categorizes PDFs (Annual Reports, Presentations, Quarterly Reports)
+3. **Data Extraction**: Parses financial statements (Income Statement, Balance Sheet, Cash Flow Statement) from PDFs using LLM via OpenRouter
+4. **Normalization**: Fuzzy-matches and deduplicates line items across multiple years using rapidfuzz
+5. **Compilation**: Aggregates 10 years of financial data into unified views with restated data prioritized
+
+## Architecture
+
+The system uses a layered architecture:
+
+- **Frontend**: Next.js 15 with React 19, TypeScript, TailwindCSS, shadcn/ui, React Query
+- **API Layer**: FastAPI REST API with async request handling
+- **Task Processing**: Celery workers with Redis broker for background processing (scraping, extraction, compilation queues)
+- **Data Layer**: PostgreSQL 16 with JSONB for flexible financial data, Redis for caching, MinIO for PDF storage
+- **LLM Integration**: OpenRouter API gateway accessing GPT-4o, GPT-4o-mini, and Claude models
+- **Monitoring**: Prometheus + Grafana for metrics, Loki for logs, Flower for Celery task monitoring
+
+### Processing Pipeline
+
+1. **Scraping Phase**: Crawl4AI visits investor relations pages, LLM identifies PDF links, documents are downloaded to MinIO
+2. **Extraction Phase**: PyMuPDF extracts text, camelot-py extracts tables from financial pages, LLM parses structured financial data
+3. **Compilation Phase**: Line items are normalized with fuzzy matching, multi-year data is compiled with restated values prioritized
+
+## Target Companies
+
+Initial scope: AstraZeneca PLC, SAP SE, Siemens AG, ASML Holding N.V., Unilever PLC, Allianz SE. Companies can be added dynamically via API.
+
+## API Endpoints
+
+### Companies
+- `GET /api/companies` - List all companies
+- `GET /api/companies/{id}` - Get company details
+- `POST /api/companies` - Create a new company
+
+### Documents
+- `GET /api/companies/{id}/documents` - List documents for a company
+- `GET /api/documents/{id}` - Get document details
+
+### Extractions
+- `GET /api/documents/{id}/extractions` - Get extractions for a document
+- `GET /api/companies/{id}/statements` - Get compiled financial statements
+
+### Tasks
+- `POST /api/companies/{id}/scrape` - Start scraping task
+- `POST /api/companies/{id}/extract` - Start extraction task
+- `POST /api/companies/{id}/compile` - Start compilation task
+- `POST /api/companies/{id}/orchestrate` - Run full pipeline
+- `GET /api/tasks/{id}` - Get task status
+
+## Database Schema
+
+Key tables:
+- **companies**: Company name, ticker, exchange, investor relations URL
+- **documents**: PDF metadata, file path (MinIO key), fiscal year, document type
+- **extractions**: Raw JSONB financial data per statement type per document
+- **compiled_statements**: Normalized multi-year financial data per company
+
+## Quick Start
+
+```bash
+git clone https://github.com/PatrykQuantumNomad/financial-data-extractor.git
+cd financial-data-extractor
+
+# Start infrastructure (PostgreSQL, Redis, MinIO, monitoring)
+cd infrastructure && make up-dev
+
+# Start backend
+cd ../backend && make install-dev && make migrate && make run
+
+# Start Celery worker (separate terminal)
+cd backend && make celery-worker
+
+# Start frontend (separate terminal)
+cd frontend && npm install && npm run dev
+```
+
+Access points: Frontend at localhost:3000, API at localhost:3030, API docs at localhost:3030/docs, Grafana at localhost:3200, Flower at localhost:5555, MinIO at localhost:9001.
+
+## Docker Deployment
+
+Multi-architecture Docker builds support AMD64 and ARM64:
+
+```bash
+cd infrastructure/docker
+docker compose -f docker-compose.multiarch.yml up --build
+```
+
+The Docker setup uses a multi-stage Dockerfile with separate targets for API and Celery worker containers.
+
+## Frequently Asked Questions
+
+**What financial statements does it extract?**
+Income Statement, Balance Sheet, and Cash Flow Statement from annual reports.
+
+**Which LLM models does it support?**
+Any model available through OpenRouter, including GPT-4o, GPT-4o-mini, and Claude. The model is configurable per task type (scraping vs extraction).
+
+**How does it handle different PDF formats?**
+It uses a hybrid approach: PyMuPDF for text extraction, camelot-py for table extraction (lattice and stream flavors), and pdfplumber as fallback. Financial pages are identified first to avoid processing entire 200+ page documents.
+
+**Can I add my own companies?**
+Yes, companies can be added via the REST API. The system will automatically scrape their investor relations website.
+
+**What about non-European companies?**
+The architecture is not limited to European companies. The initial seed data includes 6 European companies, but any company with an investor relations website can be added.

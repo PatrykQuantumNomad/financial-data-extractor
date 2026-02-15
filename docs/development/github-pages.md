@@ -20,7 +20,7 @@ The documentation site is built with:
 - **Bundler** - Ruby dependency manager
 - **GitHub Pages** - Hosting platform
 
-**Live Site**: [https://patrykquantumnomad.github.io/financial-data-extractor/](https://patrykquantumnomad.github.io/financial-data-extractor/)
+**Live Site**: [https://financial-data-extractor.patrykgolabek.dev/](https://financial-data-extractor.patrykgolabek.dev/)
 
 ## Prerequisites
 
@@ -112,8 +112,7 @@ bundle exec jekyll build
 Once the server starts, you'll see output like:
 
 ```
-Server address: http://127.0.0.1:4000/financial-data-extractor/
-                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Server address: http://127.0.0.1:4000/
 ```
 
 Open the URL in your browser. The site automatically reloads when you make changes to Markdown files.
@@ -332,7 +331,7 @@ You can also trigger deployment manually:
 ### Deployment Status
 
 - Check deployment status in **Actions** tab
-- View live site: [https://patrykquantumnomad.github.io/financial-data-extractor/](https://patrykquantumnomad.github.io/financial-data-extractor/)
+- View live site: [https://financial-data-extractor.patrykgolabek.dev/](https://financial-data-extractor.patrykgolabek.dev/)
 - Deployment typically takes 1-2 minutes
 
 ## Configuration Files

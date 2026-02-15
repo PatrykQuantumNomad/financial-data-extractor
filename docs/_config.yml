@@ -1,12 +1,23 @@
 title: Financial Data Extractor
 email: patryk@translucentcomputing.com
 description: >-
-  Financial Data Extractor is a platform for extracting financial data from company investor relations websites.
-baseurl: "/financial-data-extractor" # Repository name
-twitter_username:
+  Open-source platform to automatically extract, normalize, and compile 10 years of financial statements from European company annual reports using LLM-powered PDF parsing.
+url: "https://financial-data-extractor.patrykgolabek.dev"
+baseurl: "" # Custom domain
+twitter_username: patrykgolabek
 github_username: PatrykQuantumNomad
 logo: "/assets/images/header-logo.png"
 favicon_ico: "/assets/images/favicon.ico"
+
+# Default og:image for social sharing
+defaults:
+  - scope:
+      path: ""
+    values:
+      image: /assets/brand/logo-512x512.png
+
+# Language
+lang: en
 search_enabled: true
 search:
   # Split pages into sections that can be searched individually
@@ -52,10 +63,13 @@ mermaid:
 theme: just-the-docs
 plugins:
   - jekyll-feed
+  - jekyll-sitemap
 
 # Aux links for the upper right navigation
 aux_links:
-  "Financial Data Extractor GitHub":
+  "patrykgolabek.dev":
+    - "https://patrykgolabek.dev"
+  "GitHub":
     - "https://github.com/PatrykQuantumNomad/financial-data-extractor"
 
 # Makes Aux links open in a new tab. Default is false

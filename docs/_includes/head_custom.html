@@ -1,6 +1,11 @@
 <link
   rel="stylesheet"
   type="text/css"
-  href="/financial-data-extractor/assets/css/asciinema-player.css"
+  href="{{ '/assets/css/asciinema-player.css' | relative_url }}"
 />
-<script src="/financial-data-extractor/assets/js/asciinema-player.min.js"></script>
+<script src="{{ '/assets/js/asciinema-player.min.js' | relative_url }}"></script>
+
+<!-- Additional favicons for broader device support -->
+<link rel="apple-touch-icon" sizes="180x180" href="{{ '/assets/brand/logo-180x180.png' | relative_url }}">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ '/assets/brand/favicon-32x32.png' | relative_url }}">
+<link rel="icon" type="image/png" sizes="16x16" href="{{ '/assets/brand/favicon-16x16.png' | relative_url }}">
