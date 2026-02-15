@@ -186,14 +186,102 @@ pre-commit: lint-fix format ## Run pre-commit checks (fix linting and format cod
 ci: lint type-check test ## Run CI checks (no fixes)
 	@echo "$(COLOR_GREEN)✓ CI checks passed!$(COLOR_RESET)"
 
-# Docker helpers (for future use)
-docker-build: ## Build Docker image
-	@echo "$(COLOR_GREEN)Building Docker image...$(COLOR_RESET)"
-	docker build -t financial-data-extractor:latest .
+# Docker build targets
+DOCKER_REGISTRY ?= ghcr.io/patrykquantumnomad
+IMAGE_NAME ?= financial-data-extractor
+VERSION ?= $(shell grep '^version' pyproject.toml | cut -d '"' -f 2)
+IMAGE_TAG ?= $(VERSION)
+IMAGE_TAG_LATEST ?= latest
+BUILD_DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+VCS_REF ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
-docker-run: ## Run Docker container
-	@echo "$(COLOR_GREEN)Running Docker container...$(COLOR_RESET)"
-	docker run -p 8000:8000 financial-data-extractor:latest
+# Common build args for all Docker images
+DOCKER_BUILD_ARGS = --build-arg BUILD_DATE=$(BUILD_DATE) \
+	--build-arg VCS_REF=$(VCS_REF) \
+	--build-arg VERSION=$(VERSION)
+
+# Build FastAPI image
+docker-build-api: ## Build FastAPI Docker image
+	@echo "$(COLOR_GREEN)Building FastAPI Docker image...$(COLOR_RESET)"
+	@echo "$(COLOR_BLUE)Image: $(if $(DOCKER_REGISTRY),$(DOCKER_REGISTRY)/)$(IMAGE_NAME)-api:$(IMAGE_TAG)$(COLOR_RESET)"
+	@echo "$(COLOR_BLUE)Build Date: $(BUILD_DATE)$(COLOR_RESET)"
+	@echo "$(COLOR_BLUE)VCS Ref: $(VCS_REF)$(COLOR_RESET)"
+	docker build $(DOCKER_BUILD_ARGS) \
+		--build-arg API_PORT=3030 \
+		--target api \
+		-f Dockerfile \
+		-t $(IMAGE_NAME)-api:$(IMAGE_TAG) \
+		$(if $(DOCKER_REGISTRY),-t $(DOCKER_REGISTRY)/$(IMAGE_NAME)-api:$(IMAGE_TAG)) \
+		$(if $(DOCKER_REGISTRY),-t $(DOCKER_REGISTRY)/$(IMAGE_NAME)-api:$(IMAGE_TAG_LATEST)) \
+		-t $(IMAGE_NAME)-api:$(IMAGE_TAG_LATEST) .
+	@echo "$(COLOR_GREEN)✓ FastAPI image built successfully!$(COLOR_RESET)"
+
+# Build Celery worker image
+docker-build-worker: ## Build Celery worker Docker image
+	@echo "$(COLOR_GREEN)Building Celery worker Docker image...$(COLOR_RESET)"
+	@echo "$(COLOR_BLUE)Image: $(if $(DOCKER_REGISTRY),$(DOCKER_REGISTRY)/)$(IMAGE_NAME)-worker:$(IMAGE_TAG)$(COLOR_RESET)"
+	@echo "$(COLOR_BLUE)Build Date: $(BUILD_DATE)$(COLOR_RESET)"
+	@echo "$(COLOR_BLUE)VCS Ref: $(VCS_REF)$(COLOR_RESET)"
+	docker build $(DOCKER_BUILD_ARGS) \
+		--build-arg CELERY_CONCURRENCY=4 \
+		--build-arg CELERY_MAX_TASKS_PER_CHILD=1000 \
+		--target worker \
+		-f Dockerfile \
+		-t $(IMAGE_NAME)-worker:$(IMAGE_TAG) \
+		$(if $(DOCKER_REGISTRY),-t $(DOCKER_REGISTRY)/$(IMAGE_NAME)-worker:$(IMAGE_TAG)) \
+		$(if $(DOCKER_REGISTRY),-t $(DOCKER_REGISTRY)/$(IMAGE_NAME)-worker:$(IMAGE_TAG_LATEST)) \
+		-t $(IMAGE_NAME)-worker:$(IMAGE_TAG_LATEST) .
+	@echo "$(COLOR_GREEN)✓ Celery worker image built successfully!$(COLOR_RESET)"
+
+# Build all Docker images
+docker-build: docker-build-api docker-build-worker ## Build all Docker images (FastAPI and Celery)
+
+# Push Docker images to registry
+docker-push-api: docker-build-api ## Build and push FastAPI image to registry
+	@if [ -z "$(DOCKER_REGISTRY)" ]; then \
+		echo "$(COLOR_YELLOW)⚠️  DOCKER_REGISTRY not set. Set it to push images.$(COLOR_RESET)"; \
+		echo "$(COLOR_CYAN)Example: make docker-push-api DOCKER_REGISTRY=ghcr.io/your-org$(COLOR_RESET)"; \
+		exit 1; \
+	fi
+	@echo "$(COLOR_GREEN)Pushing FastAPI image to $(DOCKER_REGISTRY)...$(COLOR_RESET)"
+	docker push $(DOCKER_REGISTRY)/$(IMAGE_NAME)-api:$(IMAGE_TAG)
+	docker push $(DOCKER_REGISTRY)/$(IMAGE_NAME)-api:$(IMAGE_TAG_LATEST)
+	@echo "$(COLOR_GREEN)✓ FastAPI image pushed successfully!$(COLOR_RESET)"
+
+docker-push-worker: docker-build-worker ## Build and push Celery worker image to registry
+	@if [ -z "$(DOCKER_REGISTRY)" ]; then \
+		echo "$(COLOR_YELLOW)⚠️  DOCKER_REGISTRY not set. Set it to push images.$(COLOR_RESET)"; \
+		echo "$(COLOR_CYAN)Example: make docker-push-worker DOCKER_REGISTRY=ghcr.io/your-org$(COLOR_RESET)"; \
+		exit 1; \
+	fi
+	@echo "$(COLOR_GREEN)Pushing Celery worker image to $(DOCKER_REGISTRY)...$(COLOR_RESET)"
+	docker push $(DOCKER_REGISTRY)/$(IMAGE_NAME)-worker:$(IMAGE_TAG)
+	docker push $(DOCKER_REGISTRY)/$(IMAGE_NAME)-worker:$(IMAGE_TAG_LATEST)
+	@echo "$(COLOR_GREEN)✓ Celery worker image pushed successfully!$(COLOR_RESET)"
+
+docker-push: docker-push-api docker-push-worker ## Build and push all Docker images to registry
+
+# Run Docker containers locally
+docker-run-api: docker-build-api ## Build and run FastAPI container locally
+	@echo "$(COLOR_GREEN)Running FastAPI container...$(COLOR_RESET)"
+	@echo "$(COLOR_YELLOW)⚠️  Make sure to set environment variables or use --env-file$(COLOR_RESET)"
+	docker run --rm -p 3030:3030 \
+		--env-file .env \
+		$(IMAGE_NAME)-api:$(IMAGE_TAG_LATEST)
+
+docker-run-worker: docker-build-worker ## Build and run Celery worker container locally
+	@echo "$(COLOR_GREEN)Running Celery worker container...$(COLOR_RESET)"
+	@echo "$(COLOR_YELLOW)⚠️  Make sure to set environment variables or use --env-file$(COLOR_RESET)"
+	docker run --rm \
+		--env-file .env \
+		$(IMAGE_NAME)-worker:$(IMAGE_TAG_LATEST)
+
+# Clean Docker images
+docker-clean: ## Remove local Docker images
+	@echo "$(COLOR_YELLOW)Removing local Docker images...$(COLOR_RESET)"
+	-docker rmi $(IMAGE_NAME)-api:$(IMAGE_TAG) $(IMAGE_NAME)-api:$(IMAGE_TAG_LATEST) 2>/dev/null || true
+	-docker rmi $(IMAGE_NAME)-worker:$(IMAGE_TAG) $(IMAGE_NAME)-worker:$(IMAGE_TAG_LATEST) 2>/dev/null || true
+	@echo "$(COLOR_GREEN)✓ Docker images cleaned!$(COLOR_RESET)"
 
 # Database helpers
 db-reset: ## Reset database (WARNING: destructive)

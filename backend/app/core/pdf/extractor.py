@@ -119,7 +119,7 @@ class PDFExtractor:
 
         # First, get page count and extract text
         if self._fitz_available:
-            text_content, page_count = await self._extract_text_fitz(
+            text_content, page_count, page_texts = await self._extract_text_fitz(
                 pdf_stream, max_pages=max_pages
             )
             result["text"] = text_content
@@ -128,17 +128,25 @@ class PDFExtractor:
             logger.error("PyMuPDF not available, cannot extract text")
             raise RuntimeError("PyMuPDF required for PDF text extraction")
 
+        # Identify pages containing financial data for targeted table extraction
+        financial_pages = self._find_financial_pages(page_texts)
+
         # Reset stream for table extraction
         pdf_stream.seek(0)
 
-        # Extract tables using camelot (preferred) or pdfplumber (fallback)
+        # Extract tables only from financial pages (not all pages)
         if self._camelot_available:
             tables = await self._extract_tables_camelot(
-                pdf_stream, file_identifier=file_identifier, max_pages=max_pages
+                pdf_stream,
+                file_identifier=file_identifier,
+                max_pages=max_pages,
+                financial_pages=financial_pages,
             )
             result["tables"] = tables
         elif self._pdfplumber_available:
-            tables = await self._extract_tables_pdfplumber(pdf_stream, max_pages=max_pages)
+            tables = await self._extract_tables_pdfplumber(
+                pdf_stream, max_pages=max_pages, financial_pages=financial_pages
+            )
             result["tables"] = tables
         else:
             logger.warning("No table extraction library available")
@@ -157,7 +165,7 @@ class PDFExtractor:
 
     async def _extract_text_fitz(
         self, pdf_stream: io.BytesIO, max_pages: int | None = None
-    ) -> tuple[str, int]:
+    ) -> tuple[str, int, list[str]]:
         """Extract text using PyMuPDF (fitz).
 
         Args:
@@ -165,28 +173,76 @@ class PDFExtractor:
             max_pages: Optional limit on number of pages to extract.
 
         Returns:
-            Tuple of (text content, page count).
+            Tuple of (text content, page count, per-page text list).
         """
         import fitz
 
         doc = fitz.open(stream=pdf_stream, filetype="pdf")
-        text_content = []
+        page_texts = []
         page_count = len(doc)
         pages_to_extract = min(page_count, max_pages) if max_pages else page_count
 
         for page_num in range(pages_to_extract):
             page = doc[page_num]
-            text_content.append(page.get_text())
+            page_texts.append(page.get_text())
 
         doc.close()
 
-        return "\n\n".join(text_content), page_count
+        return "\n\n".join(page_texts), page_count, page_texts
+
+    def _find_financial_pages(self, page_texts: list[str]) -> list[int]:
+        """Find pages containing financial statement data.
+
+        Scans per-page text for financial keywords and returns 1-indexed page
+        numbers suitable for camelot. Adds adjacent pages as buffer for tables
+        that may span across page boundaries.
+
+        Args:
+            page_texts: List of per-page text strings from PyMuPDF.
+
+        Returns:
+            Sorted list of 1-indexed page numbers containing financial data.
+        """
+        FINANCIAL_KEYWORDS = [
+            "income statement", "statement of operations", "profit and loss",
+            "balance sheet", "statement of financial position",
+            "cash flow", "statement of cash flows",
+            "consolidated income", "consolidated balance", "consolidated cash",
+            "total revenue", "total assets", "net income",
+            "gross profit", "total liabilities", "total equity",
+            "shareholders' equity", "shareholders equity",
+            "operating income", "operating profit",
+        ]
+
+        financial_pages: set[int] = set()
+        total_pages = len(page_texts)
+
+        for page_idx, text in enumerate(page_texts):
+            text_lower = text.lower()
+            keyword_hits = sum(1 for kw in FINANCIAL_KEYWORDS if kw in text_lower)
+
+            # A page is likely financial if it has 2+ keyword hits
+            if keyword_hits >= 2:
+                page_1indexed = page_idx + 1
+                financial_pages.add(page_1indexed)
+                # Add adjacent pages as buffer for spanning tables
+                if page_idx > 0:
+                    financial_pages.add(page_1indexed - 1)
+                if page_1indexed < total_pages:
+                    financial_pages.add(page_1indexed + 1)
+
+        result = sorted(financial_pages)
+        logger.info(
+            f"Found {len(result)} financial pages out of {total_pages} total: {result}"
+        )
+        return result
 
     async def _extract_tables_camelot(
         self,
         pdf_stream: io.BytesIO,
         file_identifier: str | None = None,
         max_pages: int | None = None,
+        financial_pages: list[int] | None = None,
     ) -> list[dict[str, Any]]:
         """Extract tables using camelot-py.
 
@@ -194,6 +250,8 @@ class PDFExtractor:
             pdf_stream: PDF stream.
             file_identifier: File identifier for temporary file creation.
             max_pages: Optional limit on number of pages to extract.
+            financial_pages: Optional list of 1-indexed page numbers to process.
+                If provided, only these pages are processed (much faster for large PDFs).
 
         Returns:
             List of table dictionaries with 'df' (DataFrame) and metadata.
@@ -209,9 +267,18 @@ class PDFExtractor:
             tmp_file.write(pdf_stream.read())
 
         try:
-            # Determine pages to extract
+            # Determine pages to extract (prefer financial_pages for performance)
             if max_pages:
                 pages_str = ",".join(str(i + 1) for i in range(max_pages))
+            elif financial_pages is not None:
+                if not financial_pages:
+                    logger.info("No financial pages identified, skipping camelot extraction")
+                    return []
+                pages_str = ",".join(str(p) for p in financial_pages)
+                logger.info(
+                    f"Processing {len(financial_pages)} targeted pages with camelot "
+                    f"(instead of all pages): {pages_str}"
+                )
             else:
                 pages_str = "all"
 
@@ -251,13 +318,17 @@ class PDFExtractor:
                 logger.warning(f"Failed to delete temp file {tmp_path}: {e}")
 
     async def _extract_tables_pdfplumber(
-        self, pdf_stream: io.BytesIO, max_pages: int | None = None
+        self,
+        pdf_stream: io.BytesIO,
+        max_pages: int | None = None,
+        financial_pages: list[int] | None = None,
     ) -> list[dict[str, Any]]:
         """Extract tables using pdfplumber (fallback).
 
         Args:
             pdf_stream: PDF stream.
             max_pages: Optional limit on number of pages to extract.
+            financial_pages: Optional list of 1-indexed page numbers to process.
 
         Returns:
             List of table dictionaries.
@@ -267,9 +338,15 @@ class PDFExtractor:
         pdf_stream.seek(0)
         table_list = []
 
+        # Build set of target pages for fast lookup
+        target_pages = set(financial_pages) if financial_pages else None
+
         with pdfplumber.open(pdf_stream) as pdf:
             pages_to_process = pdf.pages[:max_pages] if max_pages else pdf.pages
             for page_num, page in enumerate(pages_to_process, start=1):
+                # Skip pages not in the financial pages set
+                if target_pages and page_num not in target_pages:
+                    continue
                 tables = page.extract_tables()
                 for table_order, table in enumerate(tables, start=1):
                     if table:

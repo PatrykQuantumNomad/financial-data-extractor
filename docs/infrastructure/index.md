@@ -44,6 +44,8 @@ The platform uses containerized services managed with Docker Compose:
 - **[Development Setup](development.html)** - Docker Compose setup, service management, and development workflows
 - **[Task Processing](tasks.html)** - Celery task system, workers, Flower monitoring, and task management
 - **[Object Storage](storage.html)** - MinIO object storage setup and usage
+- **[Multi-Architecture Docker Builds](docker-multiarch.html)** - Building Docker images for multiple CPU architectures (AMD64, ARM64)
+- **[Docker Quick Reference](docker-quick-reference.html)** - Quick reference card for multi-architecture Docker commands
 
 ## Quick Start
 

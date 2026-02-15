@@ -109,10 +109,16 @@ class OrchestrationWorker(BaseWorker):
             extra={"company_id": company_id, "document_count": len(discovered_documents)},
         )
 
-        # Step 2: Process all documents (classify, download, extract)
-        # Note: In a full implementation, this would coordinate with ExtractionWorker
-        # For now, we'll just log that documents were discovered
+        # Step 2: Process all documents (extract financial statements via LLM)
         self.update_progress("processing_documents", {"progress": 30})
+
+        extraction_result = await self.process_all_documents(company_id)
+
+        self.logger.info(
+            f"Extraction completed: {extraction_result.get('processed_count', 0)} succeeded, "
+            f"{extraction_result.get('failed_count', 0)} failed",
+            extra={"company_id": company_id},
+        )
 
         # Step 3: Compile statements
         self.update_progress("compiling_statements", {"progress": 85})
@@ -124,9 +130,12 @@ class OrchestrationWorker(BaseWorker):
             "status": "success",
             "summary": {
                 "discovered_documents": len(discovered_documents),
+                "extracted_documents": extraction_result.get("processed_count", 0),
+                "failed_extractions": extraction_result.get("failed_count", 0),
             },
             "steps": {
                 "scraping": scrape_result,
+                "extraction": extraction_result,
                 "compilation": compilation_result,
             },
         }

@@ -353,6 +353,7 @@ class ScrapingService:
 
         section_urls = []
         seen_urls = {base_url}
+        base_domain = urlparse(base_url).netloc
 
         for link in soup.find_all("a", href=True):
             href = link.get("href", "")
@@ -364,8 +365,8 @@ class ScrapingService:
                 full_url = urljoin(base_url, href)
                 url_str = str(full_url)
 
-                # Avoid duplicates and external links
-                if url_str not in seen_urls and url_str.startswith(base_url):
+                # Avoid duplicates and external links (same domain only)
+                if url_str not in seen_urls and urlparse(url_str).netloc == base_domain:
                     section_urls.append(url_str)
                     seen_urls.add(url_str)
 
@@ -395,8 +396,14 @@ class ScrapingService:
             # Set temperature=1 only for GPT-5 models, otherwise omit or allow configurable
             use_gpt5 = self.openrouter_model and "gpt-5" in self.openrouter_model.lower()
 
+            # LiteLLM uses model prefix for routing; prepend openrouter/
+            # so "openai/gpt-4.1-mini" becomes "openrouter/openai/gpt-4.1-mini"
+            litellm_model = self.openrouter_model
+            if not litellm_model.startswith("openrouter/"):
+                litellm_model = f"openrouter/{litellm_model}"
+
             llm_config = LLMConfig(
-                provider=self.openrouter_model,
+                provider=litellm_model,
                 api_token=self.openrouter_api_key,
                 base_url="https://openrouter.ai/api/v1",
             )
@@ -425,26 +432,34 @@ class ScrapingService:
                 extraction_strategy=extraction_strategy,
             )
 
-            llm_result = await self._crawler.arun(url=result.url, config=crawler_config)
+            # Use the actual crawled page URL for URL resolution and filtering
+            page_url = result.url
+
+            llm_result = await self._crawler.arun(url=page_url, config=crawler_config)
 
             # Check the whole llm_result content and log for debugging if extraction failed
             if llm_result.success:
                 # Log info about llm_result for diagnostics of missing extracted_content
                 if not llm_result.extracted_content:
                     logger.warning(
-                        f"LLM ran successfully but produced no extracted_content for {result.url}: {llm_result}",
+                        f"LLM ran successfully but produced no extracted_content for {page_url}: {llm_result}",
                         extra={"llm_result": repr(llm_result)},
                     )
                 else:
-                    return self._parse_llm_results(llm_result, base_url)
+                    pdfs = self._parse_llm_results(llm_result, page_url)
+                    if pdfs:
+                        return pdfs
+                    logger.info(
+                        f"LLM returned content but no valid PDF URLs for {page_url}, trying regex"
+                    )
         except Exception as e:
             logger.warning(
                 f"LLM extraction failed for page: {e}, falling back to simple regex extraction",
                 exc_info=True,
             )
 
-        # Fallback to simple regex-based extraction if LLM fails
-        return await self._discover_with_regex(result, base_url)
+        # Fallback to regex-based extraction if LLM finds no valid PDFs
+        return await self._discover_with_regex(result, result.url)
 
     async def _discover_with_regex(self, result: Any, base_url: str) -> list[DiscoveredPDF]:
         """
@@ -690,6 +705,7 @@ class ScrapingService:
                         logger.debug(f"Skipping invalid PDF item: {item_error}")
 
             # Convert PDFInfo to DiscoveredPDF
+            parsed_base = urlparse(base_url)
             for pdf_link in pdf_collection.pdfs:
                 # Resolve relative URLs
                 url = pdf_link.download_url
@@ -698,6 +714,18 @@ class ScrapingService:
 
                 if not url.startswith(("http://", "https://")):
                     url = urljoin(base_url, url)
+
+                # Skip URLs that are the crawled page itself (LLM sometimes
+                # returns the page URL when it can't find actual PDF links)
+                parsed_url = urlparse(url)
+                if (
+                    parsed_url.netloc == parsed_base.netloc
+                    and parsed_url.path == parsed_base.path
+                ):
+                    logger.debug(
+                        f"Skipping URL identical to crawled page: {url}",
+                    )
+                    continue
 
                 # Normalize empty strings to None for optional fields
                 # Handle None, empty strings, and whitespace-only strings

@@ -50,7 +50,11 @@ class OpenRouterClient:
             http_referer: Optional site URL for app attribution (shows in OpenRouter rankings).
             x_title: Optional app name for app attribution (shows in OpenRouter rankings).
         """
-        self.api_key = api_key
+        # Clean API key: handle case where env var includes comment lines
+        # (e.g., "# comment\nsk-or-v1-..." from malformed .env sourcing)
+        if api_key and "\n" in api_key:
+            api_key = api_key.split("\n")[-1]
+        self.api_key = api_key.strip() if api_key else api_key
         self.base_url = base_url.rstrip("/")
         self.default_model = default_model
         self.timeout = timeout

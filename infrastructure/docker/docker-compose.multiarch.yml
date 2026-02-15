@@ -1,0 +1,267 @@
+# docker-compose.multiarch.yml
+# Multi-architecture Docker Compose configuration
+#
+# Usage:
+#   # Build and run
+#   docker compose -f docker-compose.multiarch.yml up --build
+#
+#   # Run migrations after first start
+#   docker exec fastapi-app alembic upgrade head
+
+name: financial-data-extractor-multiarch
+
+services:
+  # FastAPI application
+  api:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+      target: api
+      args:
+        - BUILD_DATE=${BUILD_DATE:-}
+        - VCS_REF=${VCS_REF:-}
+        - VERSION=${VERSION:-dev}
+
+    image: financial-data-extractor-api:latest
+    container_name: fastapi-app
+
+    ports:
+      - "${API_HOST_PORT:-3031}:3030"
+
+    environment:
+      # Application
+      - API_PORT=3030
+      - LOG_LEVEL=info
+      # Database
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=financial_data_extractor
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      # Redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - REDIS_PASSWORD=
+      # LLM
+      - OPEN_ROUTER_API_KEY=${OPEN_ROUTER_API_KEY:-}
+      - OPEN_ROUTER_MODEL_SCRAPING=${OPEN_ROUTER_MODEL_SCRAPING:-openai/gpt-4.1-mini}
+      - OPEN_ROUTER_MODEL_EXTRACTION=${OPEN_ROUTER_MODEL_EXTRACTION:-openai/gpt-4.1-mini}
+      # MinIO
+      - MINIO_ENABLED=true
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - MINIO_BUCKET_NAME=financial-documents
+      - MINIO_USE_SSL=false
+
+    volumes:
+      - ../../backend/uploads:/app/uploads
+      - ../../backend/logs:/app/logs
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3030/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    restart: unless-stopped
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    networks:
+      - app-network
+
+    command: ["sh", "-c", "echo '=== Financial Data Extractor API ===' && cat /app/build_info.txt 2>/dev/null; exec uvicorn run:application --host 0.0.0.0 --port 3030 --log-level info --no-access-log"]
+
+  # Celery worker
+  celery-worker:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+      target: worker
+      args:
+        - BUILD_DATE=${BUILD_DATE:-}
+        - VCS_REF=${VCS_REF:-}
+        - VERSION=${VERSION:-dev}
+
+    image: financial-data-extractor-worker:latest
+    container_name: celery-worker
+
+    environment:
+      # Celery
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_CONCURRENCY=4
+      - CELERY_MAX_TASKS_PER_CHILD=1000
+      # Database
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=financial_data_extractor
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      # Redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - REDIS_PASSWORD=
+      # LLM
+      - OPEN_ROUTER_API_KEY=${OPEN_ROUTER_API_KEY:-}
+      - OPEN_ROUTER_MODEL_SCRAPING=${OPEN_ROUTER_MODEL_SCRAPING:-openai/gpt-4.1-mini}
+      - OPEN_ROUTER_MODEL_EXTRACTION=${OPEN_ROUTER_MODEL_EXTRACTION:-openai/gpt-4.1-mini}
+      # MinIO
+      - MINIO_ENABLED=true
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - MINIO_BUCKET_NAME=financial-documents
+      - MINIO_USE_SSL=false
+      # crawl4ai home dir (avoid permission error)
+      - HOME=/tmp
+      # Playwright browser location (set during docker build)
+      - PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers
+
+    volumes:
+      - ../../backend/uploads:/app/uploads
+      - ../../backend/logs:/app/logs
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "celery", "-A", "app.tasks.celery_app", "inspect", "ping", "-d", "celery@$${HOSTNAME}", "-t", "5"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    restart: unless-stopped
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    networks:
+      - app-network
+
+    command: ["sh", "-c", "echo '=== Financial Data Extractor Worker ===' && cat /app/build_info.txt 2>/dev/null; exec celery -A app.tasks.celery_app worker --loglevel=info -Q scraping,extraction,compilation,orchestration,default --concurrency=$${CELERY_CONCURRENCY:-4} --max-tasks-per-child=$${CELERY_MAX_TASKS_PER_CHILD:-1000} --time-limit=300 --soft-time-limit=240 -O fair --without-gossip --without-mingle --without-heartbeat"]
+
+  # PostgreSQL database
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres-db
+
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=financial_data_extractor
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=en_US.UTF-8 --lc-ctype=en_US.UTF-8
+
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+    ports:
+      - "${PG_HOST_PORT:-5433}:5432"
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d financial_data_extractor"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    restart: unless-stopped
+
+    networks:
+      - app-network
+
+  # Redis for caching and Celery broker
+  redis:
+    image: redis:8-alpine
+    container_name: redis-cache
+
+    command: redis-server --appendonly yes
+
+    volumes:
+      - redis-data:/data
+
+    ports:
+      - "${REDIS_HOST_PORT:-6380}:6379"
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    restart: unless-stopped
+
+    networks:
+      - app-network
+
+  # MinIO S3-compatible object storage
+  minio:
+    image: minio/minio:latest
+    container_name: minio-storage
+
+    command: server /data --console-address ":9001"
+
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-minioadmin}
+
+    volumes:
+      - minio-data:/data
+
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    restart: unless-stopped
+
+    networks:
+      - app-network
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  minio-data:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge

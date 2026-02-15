@@ -1,0 +1,98 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+tests/
+test-results/
+playwright-report/
+coverage/
+*.cover
+.pytest_cache/
+
+# Documentation
+docs/
+_site/
+*.md
+!README.md
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.env
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Infrastructure
+infrastructure/
+htmlcov/
+
+# Frontend (if accidentally included)
+frontend/
+node_modules/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+.cache/
+tmp/
+temp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project-specific
+*.pdf
+data/
+*.sqlite
+*.db
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.circleci/
+
+# Local development
+.local/
+local_settings.py

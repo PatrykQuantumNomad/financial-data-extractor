@@ -9,6 +9,7 @@ Copyright: 2025 Patryk Golabek
 """
 
 import logging
+import re
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -89,6 +90,15 @@ class PDFPreprocessor:
         # Remove page artifacts
         cleaned_text = self._remove_page_artifacts(relevant_text)
 
+        # Include financial table data extracted by camelot if available
+        financial_tables = extracted_content.get("financial_tables", [])
+        table_text = self._format_financial_tables(financial_tables, statement_type)
+        if table_text:
+            cleaned_text = (
+                f"EXTRACTED TABLE DATA:\n{table_text}\n\n"
+                f"DOCUMENT TEXT:\n{cleaned_text}"
+            )
+
         # Truncate if needed
         if len(cleaned_text) > max_chars:
             logger.info(
@@ -99,13 +109,18 @@ class PDFPreprocessor:
 
         logger.info(
             f"Preprocessed {statement_type}: {len(cleaned_text)} chars "
-            f"(from line {section_start_safe} to {section_end})"
+            f"(from line {section_start_safe} to {section_end}), "
+            f"{len(financial_tables)} financial tables included"
         )
 
         return cleaned_text
 
     def _find_section_start(self, lines: list[str], keywords: list[str]) -> int | None:
-        """Find the line number where a section starts.
+        """Find the line number where a financial statement section starts.
+
+        Skips Table of Contents entries (lines with trailing dots/page numbers)
+        and prefers matches in the second half of the document where financial
+        statements typically appear in annual reports.
 
         Args:
             lines: List of text lines.
@@ -114,12 +129,32 @@ class PDFPreprocessor:
         Returns:
             Line number where section starts, or None if not found.
         """
-        for i, line in enumerate(lines):
-            line_lower = line.lower()
-            if any(keyword in line_lower for keyword in keywords):
-                return i
+        candidates = []
 
-        return None
+        for i, line in enumerate(lines):
+            line_lower = line.lower().strip()
+            if not any(keyword in line_lower for keyword in keywords):
+                continue
+
+            # Skip TOC-like lines: trailing dots + page number, or trailing page number
+            if re.search(r"\.{2,}\s*\d+\s*$", line_lower):
+                continue
+            if re.search(r"\s{3,}\d{1,3}\s*$", line_lower):
+                continue
+
+            candidates.append(i)
+
+        if not candidates:
+            return None
+
+        # Prefer matches in the second half of the document (where statements are)
+        midpoint = len(lines) // 2
+        second_half = [c for c in candidates if c >= midpoint]
+        if second_half:
+            return second_half[0]
+
+        # Fall back to last match in first half (closer to the actual content)
+        return candidates[-1]
 
     def _remove_page_artifacts(self, text: str) -> str:
         """Remove page numbers, headers, and footers from text.
@@ -152,6 +187,58 @@ class PDFPreprocessor:
             cleaned_lines.append(line)
 
         return "\n".join(cleaned_lines)
+
+    def _format_financial_tables(
+        self, financial_tables: list[dict[str, Any]], statement_type: str
+    ) -> str:
+        """Format extracted financial tables as text for LLM context.
+
+        Args:
+            financial_tables: List of table dicts from PDFExtractor.
+            statement_type: Target statement type to filter relevant tables.
+
+        Returns:
+            Formatted string of table data, or empty string if none relevant.
+        """
+        if not financial_tables:
+            return ""
+
+        # Keywords to identify tables relevant to this statement type
+        relevance_keywords = self.SECTION_KEYWORDS.get(statement_type, [])
+
+        formatted_parts = []
+        for table in financial_tables:
+            df_data = table.get("df", [])
+            if not df_data or not isinstance(df_data, list):
+                continue
+
+            # Flatten table text to check relevance
+            table_text_flat = ""
+            for row in df_data:
+                if isinstance(row, dict):
+                    table_text_flat += " ".join(str(v) for v in row.values()).lower()
+
+            # Check if this table is relevant to the target statement type
+            if relevance_keywords and not any(
+                kw in table_text_flat for kw in relevance_keywords
+            ):
+                continue
+
+            # Format table as text rows
+            rows = []
+            for row in df_data:
+                if isinstance(row, dict):
+                    cells = [str(v) for v in row.values() if v]
+                    if cells:
+                        rows.append(" | ".join(cells))
+
+            if rows:
+                page_info = f" (page {table.get('page', '?')})"
+                formatted_parts.append(
+                    f"--- Table{page_info} ---\n" + "\n".join(rows)
+                )
+
+        return "\n\n".join(formatted_parts)
 
     def _truncate_text(self, text: str, max_chars: int) -> str:
         """Truncate text to maximum character count.

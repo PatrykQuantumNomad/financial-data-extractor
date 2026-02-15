@@ -190,12 +190,15 @@ class MinIOStorageService(IStorageService):
                     )
                     self._client.make_bucket(self.config.bucket_name)
             except S3Error as e:
-                logger.error(
-                    f"Failed to ensure bucket exists: {e}",
-                    exc_info=True,
-                    extra={"bucket": self.config.bucket_name},
-                )
-                raise
+                if e.code == "BucketAlreadyOwnedByYou":
+                    logger.debug(f"Bucket '{self.config.bucket_name}' already exists")
+                else:
+                    logger.error(
+                        f"Failed to ensure bucket exists: {e}",
+                        exc_info=True,
+                        extra={"bucket": self.config.bucket_name},
+                    )
+                    raise
 
     async def save_file(
         self,

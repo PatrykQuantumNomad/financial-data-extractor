@@ -326,12 +326,25 @@ class ScrapingWorker(BaseWorker):
 
         for i, pdf_data in enumerate(pdfs):
             url = pdf_data.get("url", "")
-            # Handle None explicitly - fiscal_year is required in DB
-            fiscal_year = pdf_data.get("fiscal_year") or self._extract_fiscal_year_from_url(url)
+            title = pdf_data.get("title", "")
+            description = pdf_data.get("description", "")
+
+            # Extended fiscal year extraction: LLM field → URL → title → description
+            fiscal_year = (
+                pdf_data.get("fiscal_year")
+                or self._extract_fiscal_year_from_url(url)
+                or self._extract_fiscal_year_from_url(title or "")
+                or self._extract_fiscal_year_from_url(description or "")
+            )
             if fiscal_year is None:
                 self.logger.warning(
-                    f"Cannot extract fiscal year from URL: {url}, skipping document",
-                    extra={"url": url},
+                    "Cannot extract fiscal year from any source, skipping document",
+                    extra={
+                        "url": url,
+                        "title": title,
+                        "description": description,
+                        "document_type": pdf_data.get("document_type", "unknown"),
+                    },
                 )
                 continue  # Skip documents without fiscal year
             document_type = pdf_data.get("document_type", "unknown")
